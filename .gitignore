@@ -1,0 +1,29 @@
+[Ll]ibrary/
+[Tt]emp/
+[Bb]uild/
+[Bb]uilds/
+[Oo]bj/
+[Mm]emoryCaptures/
+Packages/com.unity.package-manager-ui/
+UserSettings/
+
+# Visual Studio / Rider
+.vs/
+*.csproj
+*.sln
+*.user
+*.pidb
+*.DotSettings.user
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Crash/Logs
+sysinfo.txt
+*.log
+
+/Logs
+/Temp
+/ybuild
