@@ -125,6 +125,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 52cd307e3ed1bb44da4e733842dc82bc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BulletController
+  damage: 10
 --- !u!54 &-3297407210796065447
 Rigidbody:
   m_ObjectHideFlags: 0

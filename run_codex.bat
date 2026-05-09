@@ -1,0 +1,1 @@
+cd /d D:\vb\Unity\shooter3d && codex resume shooter3d --dangerously-bypass-approvals-and-sandbox

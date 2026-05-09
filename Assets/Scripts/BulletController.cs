@@ -13,10 +13,10 @@ public class BulletController : MonoBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
-        HealthScript health = collision.gameObject.GetComponent<HealthScript>();
+        Health health = collision.gameObject.GetComponent<Health>();
         if (health)
         {
-            health.TakeDamage(damage);
+            health.Change(-damage);
         }
         Destroy(gameObject);
     }

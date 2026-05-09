@@ -14,7 +14,7 @@ public class EnemyController : MonoBehaviour
 
     private void Update()
     {
-        if (Vector3.Distance(targetPlayer.position, transform.position) < 10)
+       // if (Vector3.Distance(targetPlayer.position, transform.position) < 10)
         {
             agent.destination = targetPlayer.position;
         }
