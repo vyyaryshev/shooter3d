@@ -4,7 +4,8 @@ using UnityEngine.InputSystem;
 public class Shoot : MonoBehaviour
 {
     [SerializeField] private Transform shootPoint;
-    [SerializeField] private float distance = 100f;
+    [SerializeField] private GameObject bulletPrefab;
+    [SerializeField] private float bulletSpeed = 30f;
     [SerializeField] private int damage = 100;
     [SerializeField] private int shootDelay = 10;
 
@@ -19,28 +20,28 @@ public class Shoot : MonoBehaviour
         {
             delayCounter = shootDelay;
 
-            Ray ray = new Ray(shootPoint.position, shootPoint.forward);
-            RaycastHit hit;
-
-            if (Physics.Raycast(ray, out hit, distance))
+            if (shootPoint == null)
             {
-                Debug.Log("Попал в: " + hit.collider.name);
-
-                // ВАЖНО: ищем не только на объекте, но и у родителя
-                EnemyHealth hp = hit.collider.GetComponentInParent<EnemyHealth>();
-
-                if (hp != null)
-                {
-                    hp.TakeDamage(damage); // <-- будет работать, если метод есть
-                }
-                else
-                {
-                    Debug.Log("У объекта нет EnemyHealth");
-                }
+                Debug.LogWarning("Shoot: не назначен shootPoint");
+                return;
             }
-            else
+
+            if (bulletPrefab == null)
             {
-                Debug.Log("Мимо");
+                Debug.LogWarning("Shoot: не назначен BulletPrefab");
+                return;
+            }
+
+            GameObject bullet = Instantiate(bulletPrefab, shootPoint.position, shootPoint.rotation);
+
+            if (bullet.TryGetComponent(out BulletController bulletController))
+            {
+                bulletController.SetDamage(damage);
+            }
+
+            if (bullet.TryGetComponent(out Rigidbody bulletRigidbody))
+            {
+                bulletRigidbody.linearVelocity = shootPoint.forward * bulletSpeed;
             }
         }
     }
