@@ -30,19 +30,23 @@ public class AcidPool : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.TryGetComponentInParent(out Health health) && !playerTargets.Contains(health))
+        Health health = other.GetComponentInParent<Health>();
+        if (health != null && !playerTargets.Contains(health))
             playerTargets.Add(health);
 
-        if (other.TryGetComponentInParent(out EnemyHealth enemyHealth) && !enemyTargets.Contains(enemyHealth))
+        EnemyHealth enemyHealth = other.GetComponentInParent<EnemyHealth>();
+        if (enemyHealth != null && !enemyTargets.Contains(enemyHealth))
             enemyTargets.Add(enemyHealth);
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (other.TryGetComponentInParent(out Health health))
+        Health health = other.GetComponentInParent<Health>();
+        if (health != null)
             playerTargets.Remove(health);
 
-        if (other.TryGetComponentInParent(out EnemyHealth enemyHealth))
+        EnemyHealth enemyHealth = other.GetComponentInParent<EnemyHealth>();
+        if (enemyHealth != null)
             enemyTargets.Remove(enemyHealth);
     }
 
