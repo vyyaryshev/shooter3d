@@ -79,7 +79,9 @@ public class EnemyHealth : MonoBehaviour
         // Останавливаем движение
         if (agent != null)
         {
-            agent.isStopped = true;
+            if (agent.enabled && agent.isOnNavMesh)
+                agent.isStopped = true;
+
             agent.enabled = false;
         }
 

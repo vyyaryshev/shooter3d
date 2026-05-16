@@ -26,12 +26,20 @@ public class MutantAI : MonoBehaviour
         anim = GetComponent<Animator>();
         health = GetComponent<EnemyHealth>();
 
-        GoToNextPoint();
+        if (IsAgentReady())
+            GoToNextPoint();
     }
 
     void Update()
     {
         if (health == null || health.IsDead()) return;
+        if (!IsAgentReady()) return;
+
+        if (player == null)
+        {
+            Patrol();
+            return;
+        }
 
         float distance = Vector3.Distance(transform.position, player.position);
 
@@ -53,29 +61,32 @@ public class MutantAI : MonoBehaviour
     {
         if (patrolPoints.Length == 0) return;
 
-        if (agent.remainingDistance < 0.5f)
+        if (!agent.pathPending && agent.remainingDistance < 0.5f)
         {
             GoToNextPoint();
         }
 
         agent.isStopped = false;
-        anim.Play("Run");
+
+        if (anim != null)
+            anim.Play("Run");
     }
 
     void GoToNextPoint()
     {
         if (patrolPoints.Length == 0) return;
 
-        agent.destination = patrolPoints[currentPoint].position;
+        agent.SetDestination(patrolPoints[currentPoint].position);
         currentPoint = (currentPoint + 1) % patrolPoints.Length;
     }
 
     void Chase()
     {
         agent.isStopped = false;
-        agent.destination = player.position;
+        agent.SetDestination(player.position);
 
-        anim.Play("Run");
+        if (anim != null)
+            anim.Play("Run");
     }
 
     void Attack()
@@ -85,9 +96,16 @@ public class MutantAI : MonoBehaviour
 
         if (Time.time >= nextAttackTime)
         {
-            anim.SetTrigger("Attack");
+            if (anim != null)
+                anim.SetTrigger("Attack");
+
             nextAttackTime = Time.time + attackCooldown;
         }
+    }
+
+    private bool IsAgentReady()
+    {
+        return agent != null && agent.enabled && agent.isOnNavMesh;
     }
 
     // 🔥 ВЫЗЫВАЕТСЯ ИЗ ANIMATION EVENT

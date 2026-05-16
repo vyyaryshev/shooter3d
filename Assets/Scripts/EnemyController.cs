@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.AI;
 
 public class EnemyController : MonoBehaviour
@@ -9,14 +9,20 @@ public class EnemyController : MonoBehaviour
 
     void Awake()
     {
+        if (agent == null)
+            agent = GetComponent<NavMeshAgent>();
+
     //    enemyRoom.enemyCount += 1;
     }
 
     private void Update()
     {
+        if (agent == null || targetPlayer == null || !agent.enabled || !agent.isOnNavMesh)
+            return;
+
        // if (Vector3.Distance(targetPlayer.position, transform.position) < 10)
         {
-            agent.destination = targetPlayer.position;
+            agent.SetDestination(targetPlayer.position);
         }
     }
     private void OnCollisionEnter(Collision collision)
