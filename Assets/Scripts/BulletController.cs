@@ -5,6 +5,8 @@ public class BulletController : MonoBehaviour
     [SerializeField] private int damage;
     [SerializeField] private float lifeTime = 3f;
 
+    private Transform ownerRoot;
+
     void Start()
     {
         Destroy(gameObject, lifeTime);
@@ -13,6 +15,26 @@ public class BulletController : MonoBehaviour
     public void SetDamage(int newDamage)
     {
         damage = newDamage;
+    }
+
+    public void Initialize(int newDamage, GameObject owner)
+    {
+        damage = newDamage;
+        ownerRoot = owner != null ? owner.transform.root : null;
+
+        if (owner == null)
+            return;
+
+        Collider[] ownerColliders = owner.GetComponentsInChildren<Collider>();
+        Collider[] bulletColliders = GetComponentsInChildren<Collider>();
+
+        foreach (Collider bulletCollider in bulletColliders)
+        {
+            foreach (Collider ownerCollider in ownerColliders)
+            {
+                Physics.IgnoreCollision(bulletCollider, ownerCollider);
+            }
+        }
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -27,18 +49,15 @@ public class BulletController : MonoBehaviour
 
     private void HandleHit(GameObject target)
     {
+        if (ownerRoot != null && target.transform.root == ownerRoot)
+            return;
+
         Debug.Log("Попал по " + target.name);
 
-        OldHealth health = target.GetComponentInParent<OldHealth>();
+        Health health = target.GetComponentInParent<Health>();
         if (health)
         {
             health.Change(-damage);
-        }
-
-        EnemyHealth enemyHealth = target.GetComponentInParent<EnemyHealth>();
-        if (enemyHealth)
-        {
-            enemyHealth.TakeDamage(damage);
         }
 
         Destroy(gameObject);

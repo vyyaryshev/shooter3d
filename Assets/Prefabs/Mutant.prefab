@@ -438,7 +438,10 @@ PrefabInstance:
       addedObject: {fileID: 7227373004761468735}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 28993fdf56219e84081ea74fc28b1b8a, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2953684952871135787}
+      addedObject: {fileID: 5290013361267968945}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 28993fdf56219e84081ea74fc28b1b8a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8701943806415901750}
   m_SourcePrefab: {fileID: 100100000, guid: 28993fdf56219e84081ea74fc28b1b8a, type: 3}
 --- !u!1 &6694480820253885338 stripped
 GameObject:
@@ -533,7 +536,7 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 16
   m_ObstacleAvoidanceType: 4
---- !u!114 &2953684952871135787
+--- !u!114 &5290013361267968945
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -544,6 +547,18 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5a6d3b5748638cf4b9f432f533bb2616, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyController
+--- !u!114 &8701943806415901750
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6694480820253885338}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ed53e36c3d2a03444b00ec90d4314e6d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Health
+  health: 100
   maxHealth: 100
-  healthBar: {fileID: 0}

@@ -1,41 +1,54 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.AI;
 
 public class EnemyController : MonoBehaviour
 {
-    [SerializeField] Room enemyRoom;
-    [SerializeField] NavMeshAgent agent;
-    [SerializeField] Transform targetPlayer;
+    private Animator anim;
+    private NavMeshAgent agent;
+    private bool isDead;
 
-    void Awake()
+    private void Awake()
     {
-        if (agent == null)
-            agent = GetComponent<NavMeshAgent>();
-
-    //    enemyRoom.enemyCount += 1;
+        anim = GetComponent<Animator>();
+        agent = GetComponent<NavMeshAgent>();
     }
 
-    private void Update()
+    public void HealthChanged(HealthChangedMessage message)
     {
-        if (agent == null || targetPlayer == null || !agent.enabled || !agent.isOnNavMesh)
-            return;
+        if (message.health <= 0)
+            Die();
+    }
 
-       // if (Vector3.Distance(targetPlayer.position, transform.position) < 10)
+    private void Die()
+    {
+        if (isDead) return;
+        isDead = true;
+
+        Debug.Log(gameObject.name + " умер");
+
+        if (agent != null)
         {
-            agent.SetDestination(targetPlayer.position);
+            if (agent.enabled && agent.isOnNavMesh)
+                agent.isStopped = true;
+
+            agent.enabled = false;
         }
+
+        MutantAI ai = GetComponent<MutantAI>();
+        if (ai != null)
+            ai.enabled = false;
+
+        foreach (Collider col in GetComponents<Collider>())
+            col.enabled = false;
+
+        if (anim != null)
+            anim.Play("Death");
+
+        Destroy(gameObject, 3f);
     }
-    private void OnCollisionEnter(Collision collision)
+
+    public bool IsDead()
     {
-        print(collision.gameObject.tag);
-        if (collision.gameObject.tag == "Bullet")
-        {
-            print("1");
-            Destroy(gameObject);
-        }
-    }
-    private void OnDestroy()
-    {
-    //    enemyRoom.ReduceEnemyCount();
+        return isDead;
     }
 }

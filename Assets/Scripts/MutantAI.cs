@@ -13,7 +13,7 @@ public class MutantAI : MonoBehaviour
 
     private NavMeshAgent agent;
     private Animator anim;
-    private EnemyHealth health;
+    private EnemyController enemyController;
 
     [Header("Attack Settings")]
     public int damage = 20;
@@ -24,7 +24,7 @@ public class MutantAI : MonoBehaviour
     {
         agent = GetComponent<NavMeshAgent>();
         anim = GetComponent<Animator>();
-        health = GetComponent<EnemyHealth>();
+        enemyController = GetComponent<EnemyController>();
 
         if (IsAgentReady())
             GoToNextPoint();
@@ -32,7 +32,7 @@ public class MutantAI : MonoBehaviour
 
     void Update()
     {
-        if (health == null || health.IsDead()) return;
+        if (enemyController != null && enemyController.IsDead()) return;
         if (!IsAgentReady()) return;
 
         if (player == null)
@@ -117,7 +117,7 @@ public class MutantAI : MonoBehaviour
 
         if (distance <= attackDistance + 0.5f)
         {
-            OldHealth playerHealth = player.GetComponent<OldHealth>();
+            Health playerHealth = player.GetComponent<Health>();
 
             if (playerHealth != null)
             {

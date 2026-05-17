@@ -36,7 +36,7 @@ public class Shoot : MonoBehaviour
 
             if (bullet.TryGetComponent(out BulletController bulletController))
             {
-                bulletController.SetDamage(damage);
+                bulletController.Initialize(damage, gameObject);
             }
 
             if (bullet.TryGetComponent(out Rigidbody bulletRigidbody))

@@ -1,4 +1,4 @@
-using UnityEngine;
+п»їusing UnityEngine;
 
 public class Fireball : MonoBehaviour
 {
@@ -18,35 +18,13 @@ public class Fireball : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // Игрок
-        if (other.CompareTag("Player"))
+        Health playerHealth = other.GetComponent<Health>();
+
+        if (playerHealth != null)
         {
-            OldHealth playerHealth = other.GetComponent<OldHealth>();
-
-            if (playerHealth != null)
-            {
-                playerHealth.Change(-damage);
-            }
-
-            Destroy(gameObject);
-            return;
+            playerHealth.Change(-damage);
         }
 
-        // Враг
-        if (other.CompareTag("Enemy"))
-        {
-            EnemyHealth enemyHealth = other.GetComponent<EnemyHealth>();
-
-            if (enemyHealth != null)
-            {
-                enemyHealth.TakeDamage(damage);
-            }
-
-            Destroy(gameObject);
-            return;
-        }
-
-        // Уничтожение при попадании в стены и прочее
         Destroy(gameObject);
     }
 }
