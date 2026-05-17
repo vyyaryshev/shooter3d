@@ -7,7 +7,7 @@ public class AcidPool : MonoBehaviour
     [SerializeField] private int damagePerTick = 10;
     [SerializeField] private float tickInterval = 1f;
 
-    private readonly List<Health> playerTargets = new List<Health>();
+    private readonly List<OldHealth> playerTargets = new List<OldHealth>();
     private readonly List<EnemyHealth> enemyTargets = new List<EnemyHealth>();
     private float nextDamageTime;
 
@@ -30,7 +30,7 @@ public class AcidPool : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        Health health = other.GetComponentInParent<Health>();
+        OldHealth health = other.GetComponentInParent<OldHealth>();
         if (health != null && !playerTargets.Contains(health))
             playerTargets.Add(health);
 
@@ -41,7 +41,7 @@ public class AcidPool : MonoBehaviour
 
     private void OnTriggerExit(Collider other)
     {
-        Health health = other.GetComponentInParent<Health>();
+        OldHealth health = other.GetComponentInParent<OldHealth>();
         if (health != null)
             playerTargets.Remove(health);
 
@@ -54,7 +54,7 @@ public class AcidPool : MonoBehaviour
     {
         for (int i = playerTargets.Count - 1; i >= 0; i--)
         {
-            Health health = playerTargets[i];
+            OldHealth health = playerTargets[i];
 
             if (health == null)
             {

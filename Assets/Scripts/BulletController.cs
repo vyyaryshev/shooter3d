@@ -29,7 +29,7 @@ public class BulletController : MonoBehaviour
     {
         Debug.Log("Попал по " + target.name);
 
-        Health health = target.GetComponentInParent<Health>();
+        OldHealth health = target.GetComponentInParent<OldHealth>();
         if (health)
         {
             health.Change(-damage);

@@ -23,71 +23,39 @@ public class Health : MonoBehaviour
     [SerializeField] double health = 1000.0;
     [SerializeField] double maxHealth = 1000;
 
-    public void Change(double x)
+    private void Start()
+    {
+        this.Change(0);
+    }
+
+    public void Change(double healthChange, bool increment = true, double maxHealthChange = 0)
     {
         var oldHealth = health;
         var oldMaxHealth = maxHealth;
 
-        health += x;
-        ClampValues();
+        if (maxHealthChange != 0) {
+            if (increment)
+            {
+                maxHealth += maxHealthChange;
+            }
+            else
+            {
+                maxHealth = maxHealthChange;
+            }
+            if (maxHealth < 1.0) maxHealth = 1.0;
+        }
 
-        NotifyHealthChanged(oldHealth, oldMaxHealth);
-    }
+        if (increment)
+        {
+            health += healthChange;
+        } else {
+            health = healthChange;
+        }
 
-    public void ChangeMaxHealth(double x)
-    {
-        var oldHealth = health;
-        var oldMaxHealth = maxHealth;
-
-        maxHealth += x;
-        ClampValues();
-
-        NotifyHealthChanged(oldHealth, oldMaxHealth);
-    }
-
-    public double SetHealth(double newHealth)
-    {
-        var oldHealth = health;
-        var oldMaxHealth = maxHealth;
-
-        health = newHealth;
-        ClampValues();
-
-        NotifyHealthChanged(oldHealth, oldMaxHealth);
-        return health;
-    }
-
-    public double SetMaxHealth(double newMaxHealth)
-    {
-        var oldHealth = health;
-        var oldMaxHealth = maxHealth;
-
-        maxHealth = newMaxHealth;
-        ClampValues();
-
-        NotifyHealthChanged(oldHealth, oldMaxHealth);
-        return maxHealth;
-    }
-
-    public double GetHealth() { return health; }
-    public double GetMaxHealth() { return maxHealth; }
-
-    void Start()
-    {
-        ClampValues();
-        NotifyHealthChanged(health, maxHealth);
-    }
-
-    private void ClampValues()
-    {
-        if (maxHealth < 1.0) maxHealth = 1.0;
         if (health > maxHealth) health = maxHealth;
         if (health < 0) health = 0;
-    }
 
-    private void NotifyHealthChanged(double oldHealth, double oldMaxHealth)
-    {
-        var message = new HealthChangedMessage(health, maxHealth, oldHealth, oldMaxHealth);
-        gameObject.SendMessage("HealthChanged", message, SendMessageOptions.DontRequireReceiver);
+        gameObject.SendMessage("HealthChanged", new HealthChangedMessage(health, maxHealth, oldHealth, oldMaxHealth), SendMessageOptions.DontRequireReceiver);
+        Debug.Log("Health: " + oldHealth + " -> " + health+ (maxHealthChange != 0 ? ", maxHealth: " + oldMaxHealth + " -> " + maxHealth:""));
     }
 }

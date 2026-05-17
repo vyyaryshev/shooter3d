@@ -7,20 +7,15 @@ public class HealthIndicator : MonoBehaviour
 
     public void HealthChanged(HealthChangedMessage message)
     {
-        UpdateHealthBar(message.health, message.maxHealth);
-    }
-
-    private void UpdateHealthBar(double health, double maxHealth)
-    {
         if (healthBar == null)
             return;
 
-        if (maxHealth <= 0)
+        if (message.maxHealth <= 0)
         {
             healthBar.value = 0f;
             return;
         }
 
-        healthBar.value = Mathf.Clamp01((float)(health / maxHealth));
+        healthBar.value = Mathf.Clamp01((float)(message.health / message.maxHealth));
     }
 }

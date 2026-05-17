@@ -117,7 +117,7 @@ public class MutantAI : MonoBehaviour
 
         if (distance <= attackDistance + 0.5f)
         {
-            Health playerHealth = player.GetComponent<Health>();
+            OldHealth playerHealth = player.GetComponent<OldHealth>();
 
             if (playerHealth != null)
             {

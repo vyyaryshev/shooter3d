@@ -21,7 +21,7 @@ public class Fireball : MonoBehaviour
         // Игрок
         if (other.CompareTag("Player"))
         {
-            Health playerHealth = other.GetComponent<Health>();
+            OldHealth playerHealth = other.GetComponent<OldHealth>();
 
             if (playerHealth != null)
             {

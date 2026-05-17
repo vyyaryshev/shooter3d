@@ -4,7 +4,7 @@ using UnityEngine;
 public class FallDamage : MonoBehaviour
 {
     [SerializeField] private Rigidbody playerRigidbody;
-    [SerializeField] private Health playerHealth;
+    [SerializeField] private OldHealth playerHealth;
     [SerializeField] private GroundCheck groundCheck;
     [SerializeField] private float safeFallSpeed = 10f;
     [SerializeField] private float damageMultiplier = 5f;
@@ -18,7 +18,7 @@ public class FallDamage : MonoBehaviour
             playerRigidbody = GetComponent<Rigidbody>();
 
         if (playerHealth == null)
-            playerHealth = GetComponent<Health>();
+            playerHealth = GetComponent<OldHealth>();
 
         if (groundCheck == null)
             groundCheck = GetComponentInChildren<GroundCheck>();
