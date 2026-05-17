@@ -23,6 +23,16 @@ public class Health : MonoBehaviour
     [SerializeField] double health = 1000.0;
     [SerializeField] double maxHealth = 1000;
 
+    public double GetHealth()
+    {
+        return health;
+    }
+
+    public double GetMaxHealth()
+    {
+        return maxHealth;
+    }
+
     private void Start()
     {
         this.Change(0);
