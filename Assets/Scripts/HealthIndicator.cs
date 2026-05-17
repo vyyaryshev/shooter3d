@@ -5,14 +5,6 @@ public class HealthIndicator : MonoBehaviour
 {
     [SerializeField] private Slider healthBar;
 
-    void Start()
-    {
-        Health health = GetComponent<Health>();
-
-        if (health != null)
-            UpdateHealthBar(health.GetHealth(), health.GetMaxHealth());
-    }
-
     public void HealthChanged(HealthChangedMessage message)
     {
         UpdateHealthBar(message.health, message.maxHealth);
