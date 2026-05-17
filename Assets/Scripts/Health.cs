@@ -1,42 +1,93 @@
 using UnityEngine;
-using UnityEngine.UI;
+
+public class HealthChangedMessage
+{
+    public readonly double health;
+    public readonly double maxHealth;
+    public readonly double oldHealth;
+    public readonly double oldMaxHealth;
+    public readonly double healthChange;
+
+    public HealthChangedMessage(double health, double maxHealth, double oldHealth, double oldMaxHealth)
+    {
+        this.health = health;
+        this.maxHealth = maxHealth;
+        this.oldHealth = oldHealth;
+        this.oldMaxHealth = oldMaxHealth;
+        healthChange = health - oldHealth;
+    }
+}
 
 public class Health : MonoBehaviour
 {
-    [SerializeField] int health = 1000;
-    [SerializeField] int maxHealth = 1000;
-    [SerializeField] public Slider healthBar;
+    [SerializeField] double health = 1000.0;
+    [SerializeField] double maxHealth = 1000;
 
-    public void Change(int x)
+    public void Change(double x)
     {
+        var oldHealth = health;
+        var oldMaxHealth = maxHealth;
+
         health += x;
+        ClampValues();
 
-        if (health > maxHealth) health = maxHealth;
-        if (health < 0) health = 0;
-
-        Debug.Log("Health: " + health);
-
-        UpdateBar();
+        NotifyHealthChanged(oldHealth, oldMaxHealth);
     }
 
-    public int GetHealth() { return health; }
-    public int GetMaxHealth() { return maxHealth; }
+    public void ChangeMaxHealth(double x)
+    {
+        var oldHealth = health;
+        var oldMaxHealth = maxHealth;
+
+        maxHealth += x;
+        ClampValues();
+
+        NotifyHealthChanged(oldHealth, oldMaxHealth);
+    }
+
+    public double SetHealth(double newHealth)
+    {
+        var oldHealth = health;
+        var oldMaxHealth = maxHealth;
+
+        health = newHealth;
+        ClampValues();
+
+        NotifyHealthChanged(oldHealth, oldMaxHealth);
+        return health;
+    }
+
+    public double SetMaxHealth(double newMaxHealth)
+    {
+        var oldHealth = health;
+        var oldMaxHealth = maxHealth;
+
+        maxHealth = newMaxHealth;
+        ClampValues();
+
+        NotifyHealthChanged(oldHealth, oldMaxHealth);
+        return maxHealth;
+    }
+
+    public double GetHealth() { return health; }
+    public double GetMaxHealth() { return maxHealth; }
 
     void Start()
     {
-        UpdateBar();
+        ClampValues();
+        NotifyHealthChanged(health, maxHealth);
     }
 
-    void Update()
+    private void ClampValues()
     {
-        UpdateBar();
+        if (maxHealth < 1.0) maxHealth = 1.0;
+        if (health > maxHealth) health = maxHealth;
+        if (health < 0) health = 0;
     }
 
-    void UpdateBar()
+    private void NotifyHealthChanged(double oldHealth, double oldMaxHealth)
     {
-        if (healthBar != null)
-        {
-            healthBar.value = (float)health / maxHealth;
-        }
+        var message = new HealthChangedMessage(health, maxHealth, oldHealth, oldMaxHealth);
+        gameObject.SendMessage("HealthChanged", message, SendMessageOptions.DontRequireReceiver);
     }
 }
