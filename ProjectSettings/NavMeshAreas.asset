@@ -15,7 +15,7 @@ NavMeshProjectSettings:
     cost: 1
   - name: Street Room
     cost: 1
-  - name: 
+  - name: point
     cost: 1
   - name: 
     cost: 1

@@ -14,10 +14,18 @@ public class FirstPersonMovement : MonoBehaviour
     public float runSpeed = 9f;
     public Key runningKey = Key.LeftShift;
 
+    [Header("Jump")]
+    public float jumpForce = 7f;
+    public Key jumpKey = Key.Space;
+
+    [Header("Ground Check")]
+    public float groundCheckDistance = 1.2f;
+    public float maxGroundAngle = 45f;
+    public LayerMask groundMask = ~0;
+
     private Rigidbody rigidbody;
-    /// <summary>
-    /// Functions to override movement speed. Will use the last added override.
-    /// </summary>
+    private bool isGrounded;
+
     public List<Func<float>> speedOverrides = new List<Func<float>>();
 
     private void Awake()
@@ -30,17 +38,17 @@ public class FirstPersonMovement : MonoBehaviour
         if (Keyboard.current == null)
             return;
 
-        // Проверяем, зажата ли клавиша бега.
+        CheckGround();
+
+        // Бег
         IsRunning = canRun && Keyboard.current[runningKey].isPressed;
 
-        // Вычисляем скорость.
         float targetMovingSpeed = IsRunning ? runSpeed : speed;
-        if (speedOverrides.Count > 0)
-        {
-            targetMovingSpeed = speedOverrides[speedOverrides.Count - 1]();
-        }
 
-        // Получаем направление движения по осям WASD или стрелкам.
+        if (speedOverrides.Count > 0)
+            targetMovingSpeed = speedOverrides[speedOverrides.Count - 1]();
+
+        // Ввод движения
         float moveX = 0f;
         float moveY = 0f;
 
@@ -50,57 +58,44 @@ public class FirstPersonMovement : MonoBehaviour
         if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed) moveY = -1f;
 
         Vector2 targetVelocity = new Vector2(moveX, moveY) * targetMovingSpeed;
-        Vector3 worldVelocity = transform.rotation * new Vector3(targetVelocity.x, rigidbody.linearVelocity.y, targetVelocity.y);
+
+        Vector3 worldVelocity = transform.rotation * new Vector3(
+            targetVelocity.x,
+            rigidbody.linearVelocity.y,
+            targetVelocity.y
+        );
 
         rigidbody.linearVelocity = worldVelocity;
-    }
-}
 
-
-/*
- 
-using System.Collections.Generic;
-using UnityEngine;
-
-public class FirstPersonMovement : MonoBehaviour
-{
-    public float speed = 5;
-
-    [Header("Running")]
-    public bool canRun = true;
-    public bool IsRunning { get; private set; }
-    public float runSpeed = 9;
-    public KeyCode runningKey = KeyCode.LeftShift;
-
-    Rigidbody rigidbody;
-    /// <summary> Functions to override movement speed. Will use the last added override. </summary>
-    public List<System.Func<float>> speedOverrides = new List<System.Func<float>>();
-
-
-
-    void Awake()
-    {
-        // Get the rigidbody on this.
-        rigidbody = GetComponent<Rigidbody>();
-    }
-
-    void FixedUpdate()
-    {
-        // Update IsRunning from input.
-        IsRunning = canRun && Input.GetKey(runningKey);
-
-        // Get targetMovingSpeed.
-        float targetMovingSpeed = IsRunning ? runSpeed : speed;
-        if (speedOverrides.Count > 0)
+        // Прыжок
+        if (Keyboard.current[jumpKey].wasPressedThisFrame && isGrounded)
         {
-            targetMovingSpeed = speedOverrides[speedOverrides.Count - 1]();
+            rigidbody.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
         }
+    }
 
-        // Get targetVelocity from input.
-        Vector2 targetVelocity =new Vector2( Input.GetAxis("Horizontal") * targetMovingSpeed, Input.GetAxis("Vertical") * targetMovingSpeed);
+    private void CheckGround()
+    {
+        isGrounded = false;
 
-        // Apply movement.
-        rigidbody.linearVelocity = transform.rotation * new Vector3(targetVelocity.x, rigidbody.linearVelocity.y, targetVelocity.y);
+        Vector3 rayStart = transform.position + Vector3.up * 0.1f;
+
+        if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, groundCheckDistance, groundMask))
+        {
+            float angle = Vector3.Angle(hit.normal, Vector3.up);
+
+            if (angle <= maxGroundAngle)
+            {
+                isGrounded = true;
+            }
+        }
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = isGrounded ? Color.green : Color.red;
+
+        Vector3 rayStart = transform.position + Vector3.up * 0.1f;
+        Gizmos.DrawLine(rayStart, rayStart + Vector3.down * groundCheckDistance);
     }
 }
-*/
