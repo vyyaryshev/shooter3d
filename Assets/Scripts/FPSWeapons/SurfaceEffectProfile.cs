@@ -13,7 +13,7 @@ public class SurfaceEffectProfile : ScriptableObject
         if (identifier != null)
             return FindByType(identifier.SurfaceType);
 
-        PhysicMaterial material = hit.collider.sharedMaterial;
+        PhysicsMaterial material = hit.collider.sharedMaterial;
         if (material != null)
         {
             for (int i = 0; i < effects.Length; i++)
@@ -49,14 +49,14 @@ public class SurfaceEffectProfile : ScriptableObject
 public class SurfaceEffectDefinition
 {
     public WeaponSurfaceType surfaceType = WeaponSurfaceType.Default;
-    public PhysicMaterial[] physicMaterials;
+    public PhysicsMaterial[] physicMaterials;
     public string[] tags;
     public GameObject impactParticles;
     public GameObject decalPrefab;
     public float decalOffset = 0.01f;
     public float lifetime = 3f;
 
-    public bool MatchesMaterial(PhysicMaterial material)
+    public bool MatchesMaterial(PhysicsMaterial material)
     {
         if (physicMaterials == null)
             return false;
