@@ -22,6 +22,7 @@ Player
 ## Weapon Components
 
 Add to the weapon object:
+- `FpsWeaponViewSetup`
 - `FpsWeaponController`
 - `WeaponRecoil`
 - `WeaponImpactSystem`
@@ -30,6 +31,8 @@ Add to the weapon object:
 Optional:
 - `FpsCameraShake` on camera/root.
 - `WeaponCameraSetup` for one-click layer/camera setup.
+
+The current `HandRailGun` prefab already has the core FPS components. At runtime it finds the player camera, creates a `Weapon Camera`, moves the weapon to the `Weapon` layer, excludes that layer from the world camera, and disables old `Shoot` scripts under the weapon.
 
 ## Surface Effects
 

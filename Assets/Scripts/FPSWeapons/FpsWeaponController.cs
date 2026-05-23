@@ -3,6 +3,8 @@ using UnityEngine.InputSystem;
 
 public class FpsWeaponController : MonoBehaviour
 {
+    private static readonly string[] MuzzleNames = { "MuzzlePoint", "Muzzle", "ShootPoint", "FirePoint" };
+
     [Header("Fire")]
     [SerializeField] private WeaponFireMode fireMode = WeaponFireMode.Automatic;
     [SerializeField] private Camera aimCamera;
@@ -31,7 +33,13 @@ public class FpsWeaponController : MonoBehaviour
     private void Awake()
     {
         if (aimCamera == null)
+            aimCamera = GetComponentInParent<Camera>();
+
+        if (aimCamera == null)
             aimCamera = Camera.main;
+
+        if (muzzlePoint == null)
+            muzzlePoint = FindChildByName(MuzzleNames);
 
         if (impactSystem == null)
             impactSystem = GetComponent<WeaponImpactSystem>();
@@ -41,6 +49,21 @@ public class FpsWeaponController : MonoBehaviour
 
         if (shellEjector == null)
             shellEjector = GetComponent<ShellEjector>();
+    }
+
+    private Transform FindChildByName(string[] names)
+    {
+        Transform[] children = GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < names.Length; i++)
+        {
+            for (int childIndex = 0; childIndex < children.Length; childIndex++)
+            {
+                if (children[childIndex].name == names[i])
+                    return children[childIndex];
+            }
+        }
+
+        return null;
     }
 
     private void Update()

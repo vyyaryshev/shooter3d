@@ -289,6 +289,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 498068}
+  - component: {fileID: 124195}
+  - component: {fileID: 124196}
+  - component: {fileID: 124197}
+  - component: {fileID: 124198}
   m_Layer: 0
   m_Name: HandRailGun
   m_TagString: Untagged
@@ -313,6 +317,89 @@ Transform:
   - {fileID: 400366}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &124195
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 124194}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 197b4f3e23b342168984eb01a19eddd1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FpsWeaponViewSetup
+  worldCamera: {fileID: 0}
+  weaponCamera: {fileID: 0}
+  weaponLayerName: Weapon
+  nearClipPlane: 0.01
+  farClipPlane: 30
+  disableWeaponColliders: 1
+  disableLegacyShoot: 1
+--- !u!114 &124196
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 124194}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2b67b9df3b541b59bda9576257eb09c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FpsWeaponController
+  fireMode: 1
+  aimCamera: {fileID: 0}
+  muzzlePoint: {fileID: 0}
+  hitMask:
+    serializedVersion: 2
+    m_Bits: -257
+  damage: 35
+  range: 200
+  roundsPerMinute: 600
+  spreadAngle: 0.35
+  muzzleFlash: {fileID: 0}
+  tracerPrefab: {fileID: 0}
+  tracerLifetime: 0.08
+  impactSystem: {fileID: 124197}
+  shellEjector: {fileID: 0}
+  recoil: {fileID: 124198}
+  cameraShake: {fileID: 0}
+  cameraShakeAmount: 0.08
+  cameraShakeStrength: 0.03
+--- !u!114 &124197
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 124194}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4fb575cd693498fa32c0ef5f5f5ed7a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponImpactSystem
+  effectProfile: {fileID: 0}
+--- !u!114 &124198
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 124194}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d11de75b2a434e7ca24408e6c2045d7d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponRecoil
+  weaponRoot: {fileID: 498068}
+  cameraRoot: {fileID: 0}
+  positionKick: {x: 0, y: -0.015, z: -0.06}
+  verticalRecoil: 2.2
+  horizontalRecoil: 0.75
+  rollRecoil: 1
+  returnSpeed: 14
+  snappiness: 24
 --- !u!1 &134220
 GameObject:
   m_ObjectHideFlags: 0
