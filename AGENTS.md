@@ -16,6 +16,7 @@
 - Do not overwrite unrelated scene, prefab, material, or ProjectSettings changes.
 - The working tree may already contain user changes. Never revert them unless the user explicitly asks.
 - After completing any task, create a git commit that contains only the files changed for that task.
+- After creating a commit, immediately push it to the remote branch.
 - Before committing, check `git status --short` and stage only the intended files.
 
 ## Unity Practices
