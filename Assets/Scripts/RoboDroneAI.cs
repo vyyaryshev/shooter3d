@@ -6,12 +6,13 @@ using UnityEngine.AI;
 public class RoboDroneAI : MonoBehaviour
 {
     [Header("Target")]
-    [SerializeField] private Transform player;
+    [SerializeField] private string playerTag = "Player";
     [SerializeField] private float viewDistance = 18f;
     [SerializeField] private float loseTargetDistance = 26f;
     [SerializeField] private bool requireLineOfSight = false;
     [SerializeField] private LayerMask lineOfSightMask = ~0;
     [SerializeField] private float aimHeightOffset = 1.2f;
+    [SerializeField] private float playerSearchInterval = 0.5f;
 
     [Header("Patrol")]
     [SerializeField] private Transform[] patrolPoints;
@@ -49,7 +50,9 @@ public class RoboDroneAI : MonoBehaviour
     private float orbitAngularSpeed;
     private float nextOrbitRetargetTime;
     private float nextShootTime;
+    private float nextPlayerSearchTime;
     private bool isOrbiting;
+    private Transform player;
 
     private void Awake()
     {
@@ -63,9 +66,7 @@ public class RoboDroneAI : MonoBehaviour
 
     private void Start()
     {
-        if (player == null)
-            FindPlayerByTag();
-
+        ResolvePlayer(true);
         PickNewOrbitSettings();
         ScheduleNextShot();
 
@@ -77,6 +78,8 @@ public class RoboDroneAI : MonoBehaviour
     {
         if (enemyController != null && enemyController.IsDead())
             return;
+
+        ResolvePlayer(false);
 
         if (player == null)
         {
@@ -102,11 +105,27 @@ public class RoboDroneAI : MonoBehaviour
         Patrol();
     }
 
-    private void FindPlayerByTag()
+    private void ResolvePlayer(bool force)
     {
-        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
+        if (!force && player != null && player.gameObject.activeInHierarchy)
+            return;
+
+        if (!force && Time.time < nextPlayerSearchTime)
+            return;
+
+        nextPlayerSearchTime = Time.time + playerSearchInterval;
+
+        if (string.IsNullOrWhiteSpace(playerTag))
+        {
+            player = null;
+            return;
+        }
+
+        GameObject playerObject = GameObject.FindGameObjectWithTag(playerTag);
         if (playerObject != null)
             player = playerObject.transform;
+        else
+            player = null;
     }
 
     private bool CanSeePlayer(float distanceToPlayer)
