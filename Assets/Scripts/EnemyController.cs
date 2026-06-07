@@ -9,7 +9,7 @@ public class EnemyController : MonoBehaviour
 
     private void Awake()
     {
-        anim = GetComponent<Animator>();
+        anim = GetComponentInChildren<Animator>();
         agent = GetComponent<NavMeshAgent>();
     }
 
@@ -37,7 +37,7 @@ public class EnemyController : MonoBehaviour
         DisableBehaviour<MutantAI>();
         DisableBehaviourByName("RoboDroneAI");
 
-        foreach (Collider col in GetComponents<Collider>())
+        foreach (Collider col in GetComponentsInChildren<Collider>())
             col.enabled = false;
 
         if (anim != null)
@@ -53,14 +53,14 @@ public class EnemyController : MonoBehaviour
 
     private void DisableBehaviour<T>() where T : Behaviour
     {
-        T behaviour = GetComponent<T>();
+        T behaviour = GetComponentInChildren<T>();
         if (behaviour != null)
             behaviour.enabled = false;
     }
 
     private void DisableBehaviourByName(string behaviourTypeName)
     {
-        MonoBehaviour[] behaviours = GetComponents<MonoBehaviour>();
+        MonoBehaviour[] behaviours = GetComponentsInChildren<MonoBehaviour>();
         for (int i = 0; i < behaviours.Length; i++)
         {
             if (behaviours[i] != null && behaviours[i].GetType().Name == behaviourTypeName)

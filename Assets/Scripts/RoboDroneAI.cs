@@ -5,6 +5,12 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class RoboDroneAI : MonoBehaviour
 {
+    [Header("Model")]
+    [SerializeField] private Transform visualRoot;
+    [SerializeField] private bool rotateVisualOnly = true;
+    [SerializeField] private Vector3 visualRotationOffset;
+    [SerializeField] private string[] firePointNames = { "FirePoint", "ShootPoint", "MuzzlePoint", "Muzzle" };
+
     [Header("Target")]
     [SerializeField] private string playerTag = "Player";
     [SerializeField] private float viewDistance = 18f;
@@ -57,11 +63,17 @@ public class RoboDroneAI : MonoBehaviour
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
-        animator = GetComponent<Animator>();
+        animator = GetComponentInChildren<Animator>();
         enemyController = GetComponent<EnemyController>();
 
+        if (visualRoot == null)
+            visualRoot = FindDefaultVisualRoot();
+
         if (firePoint == null)
-            firePoint = transform;
+            firePoint = FindChildByName(firePointNames);
+
+        if (firePoint == null)
+            firePoint = visualRoot != null ? visualRoot : transform;
     }
 
     private void Start()
@@ -154,10 +166,12 @@ public class RoboDroneAI : MonoBehaviour
             return;
 
         agent.isStopped = false;
-        agent.updateRotation = true;
+        agent.updateRotation = !rotateVisualOnly;
 
         if (!agent.pathPending && agent.remainingDistance <= patrolPointTolerance)
             GoToNextPatrolPoint();
+
+        RotateToMovement();
 
         if (animator != null)
             animator.Play("Run");
@@ -180,7 +194,10 @@ public class RoboDroneAI : MonoBehaviour
         isOrbiting = true;
 
         if (IsAgentReady())
+        {
             agent.isStopped = true;
+            agent.updateRotation = false;
+        }
 
         if (Time.time >= nextOrbitRetargetTime)
             PickNewOrbitSettings();
@@ -190,6 +207,7 @@ public class RoboDroneAI : MonoBehaviour
         float wave = Mathf.Sin(Time.time * 2f) * verticalWaveAmplitude;
         Vector3 targetPosition = player.position + offset + Vector3.up * (orbitHeight + wave);
 
+        // The empty root owns movement; the child model owns visible aiming.
         transform.position = Vector3.Lerp(transform.position, targetPosition, orbitPositionSharpness * Time.deltaTime);
         RotateToPlayer();
 
@@ -224,7 +242,30 @@ public class RoboDroneAI : MonoBehaviour
             return;
 
         Quaternion targetRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSharpness * Time.deltaTime);
+        ApplyVisibleRotation(targetRotation);
+    }
+
+    private void RotateToMovement()
+    {
+        if (!rotateVisualOnly || agent == null || agent.desiredVelocity.sqrMagnitude < 0.01f)
+            return;
+
+        Vector3 direction = agent.desiredVelocity;
+        direction.y = 0f;
+
+        if (direction.sqrMagnitude < 0.01f)
+            return;
+
+        Quaternion targetRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+        ApplyVisibleRotation(targetRotation);
+    }
+
+    private void ApplyVisibleRotation(Quaternion targetRotation)
+    {
+        targetRotation *= Quaternion.Euler(visualRotationOffset);
+
+        Transform rotationTarget = rotateVisualOnly && visualRoot != null ? visualRoot : transform;
+        rotationTarget.rotation = Quaternion.Slerp(rotationTarget.rotation, targetRotation, rotationSharpness * Time.deltaTime);
     }
 
     private void TryShoot()
@@ -296,5 +337,31 @@ public class RoboDroneAI : MonoBehaviour
     private bool IsAgentReady()
     {
         return agent != null && agent.enabled && agent.isOnNavMesh;
+    }
+
+    private Transform FindDefaultVisualRoot()
+    {
+        return transform.childCount > 0 ? transform.GetChild(0) : null;
+    }
+
+    private Transform FindChildByName(string[] names)
+    {
+        if (names == null)
+            return null;
+
+        Transform[] children = GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < names.Length; i++)
+        {
+            if (string.IsNullOrWhiteSpace(names[i]))
+                continue;
+
+            for (int childIndex = 0; childIndex < children.Length; childIndex++)
+            {
+                if (children[childIndex].name == names[i])
+                    return children[childIndex];
+            }
+        }
+
+        return null;
     }
 }
