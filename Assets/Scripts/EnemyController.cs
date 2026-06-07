@@ -34,9 +34,8 @@ public class EnemyController : MonoBehaviour
             agent.enabled = false;
         }
 
-        MutantAI ai = GetComponent<MutantAI>();
-        if (ai != null)
-            ai.enabled = false;
+        DisableBehaviour<MutantAI>();
+        DisableBehaviourByName("RoboDroneAI");
 
         foreach (Collider col in GetComponents<Collider>())
             col.enabled = false;
@@ -50,5 +49,22 @@ public class EnemyController : MonoBehaviour
     public bool IsDead()
     {
         return isDead;
+    }
+
+    private void DisableBehaviour<T>() where T : Behaviour
+    {
+        T behaviour = GetComponent<T>();
+        if (behaviour != null)
+            behaviour.enabled = false;
+    }
+
+    private void DisableBehaviourByName(string behaviourTypeName)
+    {
+        MonoBehaviour[] behaviours = GetComponents<MonoBehaviour>();
+        for (int i = 0; i < behaviours.Length; i++)
+        {
+            if (behaviours[i] != null && behaviours[i].GetType().Name == behaviourTypeName)
+                behaviours[i].enabled = false;
+        }
     }
 }
