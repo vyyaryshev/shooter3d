@@ -25,6 +25,10 @@ public class RoboDroneAI : MonoBehaviour
     [SerializeField] private float patrolPointTolerance = 0.6f;
 
     [Header("Orbit")]
+    [SerializeField] private bool orbitAroundDroneLayer = true;
+    [SerializeField] private string orbitCenterLayerName = "Drone";
+    [SerializeField] private float orbitCenterSearchRadius = 50f;
+    [SerializeField] private float orbitCenterRefreshInterval = 1f;
     [SerializeField] private float minOrbitRadius = 5f;
     [SerializeField] private float maxOrbitRadius = 9f;
     [SerializeField] private float orbitHeight = 2.5f;
@@ -57,6 +61,8 @@ public class RoboDroneAI : MonoBehaviour
     private float nextOrbitRetargetTime;
     private float nextShootTime;
     private float nextPlayerSearchTime;
+    private float nextOrbitCenterSearchTime;
+    private Transform orbitCenter;
     private bool isOrbiting;
     private Transform player;
 
@@ -79,6 +85,7 @@ public class RoboDroneAI : MonoBehaviour
     private void Start()
     {
         ResolvePlayer(true);
+        ResolveOrbitCenter(true);
         PickNewOrbitSettings();
         ScheduleNextShot();
 
@@ -92,6 +99,7 @@ public class RoboDroneAI : MonoBehaviour
             return;
 
         ResolvePlayer(false);
+        ResolveOrbitCenter(false);
 
         if (player == null)
         {
@@ -205,7 +213,7 @@ public class RoboDroneAI : MonoBehaviour
         orbitAngle += orbitDirection * orbitAngularSpeed * Time.deltaTime;
         Vector3 offset = Quaternion.Euler(0f, orbitAngle, 0f) * Vector3.forward * orbitRadius;
         float wave = Mathf.Sin(Time.time * 2f) * verticalWaveAmplitude;
-        Vector3 targetPosition = player.position + offset + Vector3.up * (orbitHeight + wave);
+        Vector3 targetPosition = GetOrbitCenterPosition() + offset + Vector3.up * (orbitHeight + wave);
 
         // The empty root owns movement; the child model owns visible aiming.
         transform.position = Vector3.Lerp(transform.position, targetPosition, orbitPositionSharpness * Time.deltaTime);
@@ -223,7 +231,7 @@ public class RoboDroneAI : MonoBehaviour
 
         if (player != null)
         {
-            Vector3 toDrone = transform.position - player.position;
+            Vector3 toDrone = transform.position - GetOrbitCenterPosition();
             toDrone.y = 0f;
 
             if (toDrone.sqrMagnitude > 0.01f)
@@ -329,6 +337,14 @@ public class RoboDroneAI : MonoBehaviour
         return player != null ? player.position + Vector3.up * aimHeightOffset : transform.position + transform.forward;
     }
 
+    private Vector3 GetOrbitCenterPosition()
+    {
+        if (orbitAroundDroneLayer && orbitCenter != null)
+            return orbitCenter.position;
+
+        return player != null ? player.position : transform.position;
+    }
+
     private void ScheduleNextShot()
     {
         nextShootTime = Time.time + Random.Range(minShootInterval, maxShootInterval);
@@ -363,5 +379,82 @@ public class RoboDroneAI : MonoBehaviour
         }
 
         return null;
+    }
+
+    private void ResolveOrbitCenter(bool force)
+    {
+        if (!orbitAroundDroneLayer)
+        {
+            orbitCenter = null;
+            return;
+        }
+
+        if (!force && orbitCenter != null && orbitCenter.gameObject.activeInHierarchy)
+            return;
+
+        if (!force && Time.time < nextOrbitCenterSearchTime)
+            return;
+
+        nextOrbitCenterSearchTime = Time.time + orbitCenterRefreshInterval;
+
+        int droneLayer = LayerMask.NameToLayer(orbitCenterLayerName);
+        if (droneLayer < 0)
+        {
+            orbitCenter = null;
+            return;
+        }
+
+        Collider[] candidates = Physics.OverlapSphere(transform.position, orbitCenterSearchRadius, 1 << droneLayer, QueryTriggerInteraction.Collide);
+        orbitCenter = FindClosestOrbitCenter(candidates);
+
+        if (orbitCenter == null)
+            orbitCenter = FindClosestOrbitCenterTransform(droneLayer);
+    }
+
+    private Transform FindClosestOrbitCenter(Collider[] candidates)
+    {
+        Transform closest = null;
+        float closestDistance = float.MaxValue;
+
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            if (candidates[i] == null || candidates[i].transform.root == transform.root)
+                continue;
+
+            float distance = Vector3.SqrMagnitude(candidates[i].transform.position - transform.position);
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closest = candidates[i].transform;
+            }
+        }
+
+        return closest;
+    }
+
+    private Transform FindClosestOrbitCenterTransform(int droneLayer)
+    {
+        Transform[] candidates = FindObjectsByType<Transform>(FindObjectsSortMode.None);
+        Transform closest = null;
+        float closestDistance = float.MaxValue;
+
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            Transform candidate = candidates[i];
+            if (candidate == null || candidate.root == transform.root || candidate.gameObject.layer != droneLayer)
+                continue;
+
+            float distance = Vector3.SqrMagnitude(candidate.position - transform.position);
+            if (distance > orbitCenterSearchRadius * orbitCenterSearchRadius)
+                continue;
+
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closest = candidate;
+            }
+        }
+
+        return closest;
     }
 }
