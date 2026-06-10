@@ -8,6 +8,8 @@ public class RoboDroneAI : MonoBehaviour
     [Header("Model")]
     [SerializeField] private Transform visualRoot;
     [SerializeField] private bool rotateVisualOnly = true;
+    [Tooltip("Yaw correction for models that face sideways relative to Unity's +Z forward axis.")]
+    [SerializeField] private float visualYawOffset = -90f;
     [SerializeField] private Vector3 visualRotationOffset;
     [SerializeField] private string[] firePointNames = { "FirePoint", "ShootPoint", "MuzzlePoint", "Muzzle" };
 
@@ -270,6 +272,7 @@ public class RoboDroneAI : MonoBehaviour
 
     private void ApplyVisibleRotation(Quaternion targetRotation)
     {
+        targetRotation *= Quaternion.Euler(0f, visualYawOffset, 0f);
         targetRotation *= Quaternion.Euler(visualRotationOffset);
 
         Transform rotationTarget = rotateVisualOnly && visualRoot != null ? visualRoot : transform;
