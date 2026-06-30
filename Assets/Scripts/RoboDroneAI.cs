@@ -95,6 +95,11 @@ public class RoboDroneAI : MonoBehaviour
             GoToNextPatrolPoint();
     }
 
+    public void SetPlayer(Transform target)
+    {
+        player = target;
+    }
+
     private void Update()
     {
         if (enemyController != null && enemyController.IsDead())

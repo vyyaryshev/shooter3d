@@ -8,6 +8,7 @@ public class MutantAI : MonoBehaviour
 
     public float viewDistance = 15f;
     public float attackDistance = 2f;
+    public float navMeshSampleRadius = 3f;
 
     public Transform[] patrolPoints;
     private int currentPoint;
@@ -28,14 +29,19 @@ public class MutantAI : MonoBehaviour
         enemyController = GetComponent<EnemyController>();
         ResolvePlayer();
 
-        if (IsAgentReady() && HasPatrolPoints())
+        if (EnsureAgentOnNavMesh() && HasPatrolPoints())
             GoToNextPoint();
+    }
+
+    public void SetPlayer(Transform target)
+    {
+        player = target;
     }
 
     void Update()
     {
         if (enemyController != null && enemyController.IsDead()) return;
-        if (!IsAgentReady()) return;
+        if (!EnsureAgentOnNavMesh()) return;
 
         ResolvePlayer();
 
@@ -90,8 +96,17 @@ public class MutantAI : MonoBehaviour
     {
         if (!HasPatrolPoints()) return;
 
-        agent.SetDestination(patrolPoints[currentPoint].position);
-        currentPoint = (currentPoint + 1) % patrolPoints.Length;
+        for (int i = 0; i < patrolPoints.Length; i++)
+        {
+            Transform point = patrolPoints[currentPoint];
+            currentPoint = (currentPoint + 1) % patrolPoints.Length;
+
+            if (point == null)
+                continue;
+
+            agent.SetDestination(point.position);
+            return;
+        }
     }
 
     void Chase()
@@ -117,14 +132,35 @@ public class MutantAI : MonoBehaviour
         }
     }
 
-    private bool IsAgentReady()
+    private bool EnsureAgentOnNavMesh()
     {
-        return agent != null && agent.enabled && agent.isOnNavMesh;
+        if (agent == null || !agent.enabled)
+            return false;
+
+        if (agent.isOnNavMesh)
+            return true;
+
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, navMeshSampleRadius, agent.areaMask))
+        {
+            agent.Warp(hit.position);
+            return agent.isOnNavMesh;
+        }
+
+        return false;
     }
 
     private bool HasPatrolPoints()
     {
-        return patrolPoints != null && patrolPoints.Length > 0;
+        if (patrolPoints == null)
+            return false;
+
+        for (int i = 0; i < patrolPoints.Length; i++)
+        {
+            if (patrolPoints[i] != null)
+                return true;
+        }
+
+        return false;
     }
 
     private void ResolvePlayer()

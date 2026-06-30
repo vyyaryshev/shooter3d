@@ -27,6 +27,7 @@ public class ArenaRoom : MonoBehaviour
 
     private GameObject exitInstance;
     private Coroutine exitMoveRoutine;
+    private Transform activatingPlayer;
     private bool activated;
     private bool completed;
 
@@ -51,6 +52,7 @@ public class ArenaRoom : MonoBehaviour
         if (!other.CompareTag(playerTag))
             return;
 
+        activatingPlayer = other.transform;
         ActivateArena();
     }
 
@@ -79,8 +81,23 @@ public class ArenaRoom : MonoBehaviour
                 continue;
 
             GameObject enemy = Instantiate(prefab, spawnPoint.position, spawnPoint.rotation, spawnedEnemiesParent);
+            AssignTarget(enemy);
             TrackEnemy(enemy);
         }
+    }
+
+    private void AssignTarget(GameObject enemy)
+    {
+        if (enemy == null || activatingPlayer == null)
+            return;
+
+        MutantAI[] mutants = enemy.GetComponentsInChildren<MutantAI>(true);
+        for (int i = 0; i < mutants.Length; i++)
+            mutants[i].SetPlayer(activatingPlayer);
+
+        RoboDroneAI[] drones = enemy.GetComponentsInChildren<RoboDroneAI>(true);
+        for (int i = 0; i < drones.Length; i++)
+            drones[i].SetPlayer(activatingPlayer);
     }
 
     private void TrackEnemy(GameObject enemy)
