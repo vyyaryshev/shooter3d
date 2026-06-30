@@ -91,7 +91,7 @@ public class RoboDroneAI : MonoBehaviour
         PickNewOrbitSettings();
         ScheduleNextShot();
 
-        if (IsAgentReady())
+        if (IsAgentReady() && HasPatrolPoints())
             GoToNextPatrolPoint();
     }
 
@@ -121,6 +121,12 @@ public class RoboDroneAI : MonoBehaviour
         {
             OrbitPlayer();
             TryShoot();
+            return;
+        }
+
+        if (!HasPatrolPoints())
+        {
+            ChasePlayer();
             return;
         }
 
@@ -172,7 +178,7 @@ public class RoboDroneAI : MonoBehaviour
     {
         isOrbiting = false;
 
-        if (!IsAgentReady() || patrolPoints == null || patrolPoints.Length == 0)
+        if (!IsAgentReady() || !HasPatrolPoints())
             return;
 
         agent.isStopped = false;
@@ -189,7 +195,7 @@ public class RoboDroneAI : MonoBehaviour
 
     private void GoToNextPatrolPoint()
     {
-        if (patrolPoints == null || patrolPoints.Length == 0 || !IsAgentReady())
+        if (!HasPatrolPoints() || !IsAgentReady())
             return;
 
         Transform point = patrolPoints[currentPatrolPoint];
@@ -219,6 +225,23 @@ public class RoboDroneAI : MonoBehaviour
 
         // The empty root owns movement; the child model owns visible aiming.
         transform.position = Vector3.Lerp(transform.position, targetPosition, orbitPositionSharpness * Time.deltaTime);
+        RotateToPlayer();
+
+        if (animator != null)
+            animator.Play("Run");
+    }
+
+    private void ChasePlayer()
+    {
+        isOrbiting = false;
+
+        if (!IsAgentReady() || player == null)
+            return;
+
+        agent.isStopped = false;
+        agent.updateRotation = !rotateVisualOnly;
+        agent.SetDestination(player.position);
+
         RotateToPlayer();
 
         if (animator != null)
@@ -356,6 +379,11 @@ public class RoboDroneAI : MonoBehaviour
     private bool IsAgentReady()
     {
         return agent != null && agent.enabled && agent.isOnNavMesh;
+    }
+
+    private bool HasPatrolPoints()
+    {
+        return patrolPoints != null && patrolPoints.Length > 0;
     }
 
     private Transform FindDefaultVisualRoot()

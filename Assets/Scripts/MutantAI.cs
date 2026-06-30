@@ -3,6 +3,7 @@ using UnityEngine.AI;
 
 public class MutantAI : MonoBehaviour
 {
+    public string playerTag = "Player";
     public Transform player;
 
     public float viewDistance = 15f;
@@ -25,8 +26,9 @@ public class MutantAI : MonoBehaviour
         agent = GetComponent<NavMeshAgent>();
         anim = GetComponent<Animator>();
         enemyController = GetComponent<EnemyController>();
+        ResolvePlayer();
 
-        if (IsAgentReady())
+        if (IsAgentReady() && HasPatrolPoints())
             GoToNextPoint();
     }
 
@@ -35,6 +37,8 @@ public class MutantAI : MonoBehaviour
         if (enemyController != null && enemyController.IsDead()) return;
         if (!IsAgentReady()) return;
 
+        ResolvePlayer();
+
         if (player == null)
         {
             Patrol();
@@ -42,6 +46,16 @@ public class MutantAI : MonoBehaviour
         }
 
         float distance = Vector3.Distance(transform.position, player.position);
+
+        if (!HasPatrolPoints())
+        {
+            if (distance <= attackDistance)
+                Attack();
+            else
+                Chase();
+
+            return;
+        }
 
         if (distance <= attackDistance)
         {
@@ -59,7 +73,7 @@ public class MutantAI : MonoBehaviour
 
     void Patrol()
     {
-        if (patrolPoints.Length == 0) return;
+        if (!HasPatrolPoints()) return;
 
         if (!agent.pathPending && agent.remainingDistance < 0.5f)
         {
@@ -74,7 +88,7 @@ public class MutantAI : MonoBehaviour
 
     void GoToNextPoint()
     {
-        if (patrolPoints.Length == 0) return;
+        if (!HasPatrolPoints()) return;
 
         agent.SetDestination(patrolPoints[currentPoint].position);
         currentPoint = (currentPoint + 1) % patrolPoints.Length;
@@ -106,6 +120,21 @@ public class MutantAI : MonoBehaviour
     private bool IsAgentReady()
     {
         return agent != null && agent.enabled && agent.isOnNavMesh;
+    }
+
+    private bool HasPatrolPoints()
+    {
+        return patrolPoints != null && patrolPoints.Length > 0;
+    }
+
+    private void ResolvePlayer()
+    {
+        if (player != null || string.IsNullOrWhiteSpace(playerTag))
+            return;
+
+        GameObject playerObject = GameObject.FindGameObjectWithTag(playerTag);
+        if (playerObject != null)
+            player = playerObject.transform;
     }
 
     // 🔥 ВЫЗЫВАЕТСЯ ИЗ ANIMATION EVENT
