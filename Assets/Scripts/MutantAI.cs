@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System.Collections;
 using UnityEngine.AI;
 
 public class MutantAI : MonoBehaviour
@@ -9,6 +10,7 @@ public class MutantAI : MonoBehaviour
     public float viewDistance = 15f;
     public float attackDistance = 2f;
     public float navMeshSampleRadius = 3f;
+    public bool warpToNavMeshAfterSpawn = true;
 
     public Transform[] patrolPoints;
     private int currentPoint;
@@ -22,11 +24,21 @@ public class MutantAI : MonoBehaviour
     public float attackCooldown = 1.5f;
     private float nextAttackTime = 0f;
 
-    void Start()
+    private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         anim = GetComponent<Animator>();
         enemyController = GetComponent<EnemyController>();
+    }
+
+    private void OnEnable()
+    {
+        if (warpToNavMeshAfterSpawn)
+            StartCoroutine(WarpToNavMeshAfterSpawn());
+    }
+
+    void Start()
+    {
         ResolvePlayer();
 
         if (EnsureAgentOnNavMesh() && HasPatrolPoints())
@@ -36,6 +48,14 @@ public class MutantAI : MonoBehaviour
     public void SetPlayer(Transform target)
     {
         player = target;
+    }
+
+    private IEnumerator WarpToNavMeshAfterSpawn()
+    {
+        // Instantiate can enable NavMeshAgent before physics has settled the spawned enemy.
+        // Waiting one physics tick and then warping avoids agents staying detached from NavMesh.
+        yield return new WaitForFixedUpdate();
+        ForceWarpToNearestNavMesh();
     }
 
     void Update()
@@ -140,13 +160,19 @@ public class MutantAI : MonoBehaviour
         if (agent.isOnNavMesh)
             return true;
 
-        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, navMeshSampleRadius, agent.areaMask))
-        {
-            agent.Warp(hit.position);
-            return agent.isOnNavMesh;
-        }
+        return ForceWarpToNearestNavMesh();
+    }
 
-        return false;
+    public bool ForceWarpToNearestNavMesh()
+    {
+        if (agent == null || !agent.enabled)
+            return false;
+
+        if (!NavMesh.SamplePosition(transform.position, out NavMeshHit hit, navMeshSampleRadius, agent.areaMask))
+            return false;
+
+        agent.Warp(hit.position);
+        return agent.isOnNavMesh;
     }
 
     private bool HasPatrolPoints()
