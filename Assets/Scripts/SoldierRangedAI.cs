@@ -46,6 +46,7 @@ public class SoldierRangedAI : MonoBehaviour
     private float nextShotTime;
     private float attackAnimationLockUntil;
     private bool isDead;
+    private bool hasSpottedPlayer;
 
     private bool hasSpeedParameter;
     private bool hasAimingParameter;
@@ -106,6 +107,7 @@ public class SoldierRangedAI : MonoBehaviour
             return;
         }
 
+        ReportPlayerSpotted();
         RotateTowardsPlayer();
         SetAiming(true);
 
@@ -200,6 +202,7 @@ public class SoldierRangedAI : MonoBehaviour
             return;
 
         nextShotTime = Time.time + fireInterval;
+        gameObject.SendMessage("EnemyAttackStarted", SendMessageOptions.DontRequireReceiver);
 
         Vector3 origin = GetFireOrigin();
         Vector3 direction = (GetAimTarget() - origin).normalized;
@@ -270,6 +273,15 @@ public class SoldierRangedAI : MonoBehaviour
         GameObject playerObject = GameObject.FindGameObjectWithTag(playerTag);
         if (playerObject != null)
             player = playerObject.transform;
+    }
+
+    private void ReportPlayerSpotted()
+    {
+        if (hasSpottedPlayer)
+            return;
+
+        hasSpottedPlayer = true;
+        gameObject.SendMessage("EnemySpottedPlayer", SendMessageOptions.DontRequireReceiver);
     }
 
     private Transform FindFirePoint()

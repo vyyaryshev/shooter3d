@@ -67,6 +67,7 @@ public class RoboDroneAI : MonoBehaviour
     private Transform orbitCenter;
     private bool isOrbiting;
     private Transform player;
+    private bool hasSpottedPlayer;
 
     private void Awake()
     {
@@ -117,6 +118,7 @@ public class RoboDroneAI : MonoBehaviour
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
         if (CanSeePlayer(distanceToPlayer))
         {
+            ReportPlayerSpotted();
             OrbitPlayer();
             TryShoot();
             return;
@@ -124,6 +126,7 @@ public class RoboDroneAI : MonoBehaviour
 
         if (isOrbiting && distanceToPlayer <= loseTargetDistance)
         {
+            ReportPlayerSpotted();
             OrbitPlayer();
             TryShoot();
             return;
@@ -131,6 +134,7 @@ public class RoboDroneAI : MonoBehaviour
 
         if (!HasPatrolPoints())
         {
+            ReportPlayerSpotted();
             ChasePlayer();
             return;
         }
@@ -313,7 +317,17 @@ public class RoboDroneAI : MonoBehaviour
             return;
 
         FireProjectile();
+        gameObject.SendMessage("EnemyAttackStarted", SendMessageOptions.DontRequireReceiver);
         ScheduleNextShot();
+    }
+
+    private void ReportPlayerSpotted()
+    {
+        if (hasSpottedPlayer)
+            return;
+
+        hasSpottedPlayer = true;
+        gameObject.SendMessage("EnemySpottedPlayer", SendMessageOptions.DontRequireReceiver);
     }
 
     private void FireProjectile()

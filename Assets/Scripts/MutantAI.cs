@@ -23,6 +23,7 @@ public class MutantAI : MonoBehaviour
     public int damage = 20;
     public float attackCooldown = 1.5f;
     private float nextAttackTime = 0f;
+    private bool hasSpottedPlayer;
 
     private void Awake()
     {
@@ -131,6 +132,8 @@ public class MutantAI : MonoBehaviour
 
     void Chase()
     {
+        ReportPlayerSpotted();
+
         agent.isStopped = false;
         agent.SetDestination(player.position);
 
@@ -140,11 +143,15 @@ public class MutantAI : MonoBehaviour
 
     void Attack()
     {
+        ReportPlayerSpotted();
+
         agent.isStopped = true;
         transform.LookAt(player);
 
         if (Time.time >= nextAttackTime)
         {
+            gameObject.SendMessage("EnemyAttackStarted", SendMessageOptions.DontRequireReceiver);
+
             if (anim != null)
                 anim.SetTrigger("Attack");
 
@@ -197,6 +204,15 @@ public class MutantAI : MonoBehaviour
         GameObject playerObject = GameObject.FindGameObjectWithTag(playerTag);
         if (playerObject != null)
             player = playerObject.transform;
+    }
+
+    private void ReportPlayerSpotted()
+    {
+        if (hasSpottedPlayer)
+            return;
+
+        hasSpottedPlayer = true;
+        gameObject.SendMessage("EnemySpottedPlayer", SendMessageOptions.DontRequireReceiver);
     }
 
     // 🔥 ВЫЗЫВАЕТСЯ ИЗ ANIMATION EVENT
