@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 public class MeleeHitMessage
 {
@@ -50,6 +51,12 @@ public class PlayerMeleeCombat : MonoBehaviour
     [Header("Attack State")]
     [SerializeField] private float attackLockDuration = 0.35f;
     [SerializeField] private bool disableWeaponsDuringAttack = true;
+
+    [Header("Enemy Stun Animation")]
+    [SerializeField] private string stunStateName = "Stun";
+    [SerializeField] private string stunTriggerName = "Stun";
+    [SerializeField] private int animatorLayer = 0;
+    [SerializeField] private bool disableRootMotionDuringStun = true;
 
     [Header("Enemy Scripts To Stun")]
     [SerializeField] private string[] stunBehaviourTypeNames =
@@ -168,6 +175,7 @@ public class PlayerMeleeCombat : MonoBehaviour
     private IEnumerator StunAndMoveTarget(GameObject targetRoot, Health health, NavMeshAgent agent, Rigidbody targetRigidbody, Vector3 direction)
     {
         MonoBehaviour[] disabledBehaviours = DisableEnemyBehaviours(targetRoot);
+        AnimatorRootMotionState[] rootMotionStates = PlayStunAnimation(targetRoot);
 
         bool hadAgent = agent != null && agent.enabled;
         bool oldAgentStopped = false;
@@ -206,9 +214,78 @@ public class PlayerMeleeCombat : MonoBehaviour
         }
 
         if (targetIsAlive)
+        {
+            RestoreRootMotion(rootMotionStates);
             EnableEnemyBehaviours(disabledBehaviours);
+        }
 
         activeStuns.Remove(targetRoot);
+    }
+
+    private AnimatorRootMotionState[] PlayStunAnimation(GameObject targetRoot)
+    {
+        Animator[] animators = targetRoot.GetComponentsInChildren<Animator>(true);
+        List<AnimatorRootMotionState> rootMotionStates = new List<AnimatorRootMotionState>();
+
+        for (int i = 0; i < animators.Length; i++)
+        {
+            Animator animator = animators[i];
+            if (animator == null)
+                continue;
+
+            if (disableRootMotionDuringStun)
+            {
+                rootMotionStates.Add(new AnimatorRootMotionState(animator, animator.applyRootMotion));
+                animator.applyRootMotion = false;
+            }
+
+            if (HasAnimatorTrigger(animator, stunTriggerName))
+                animator.SetTrigger(stunTriggerName);
+            else
+                PlayAnimatorStateIfExists(animator, stunStateName);
+        }
+
+        return rootMotionStates.ToArray();
+    }
+
+    private bool HasAnimatorTrigger(Animator animator, string triggerName)
+    {
+        if (animator == null || string.IsNullOrWhiteSpace(triggerName))
+            return false;
+
+        AnimatorControllerParameter[] parameters = animator.parameters;
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            if (parameters[i].name == triggerName && parameters[i].type == AnimatorControllerParameterType.Trigger)
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool PlayAnimatorStateIfExists(Animator animator, string stateName)
+    {
+        if (animator == null || string.IsNullOrWhiteSpace(stateName))
+            return false;
+
+        int stateHash = Animator.StringToHash(stateName);
+        if (!animator.HasState(animatorLayer, stateHash))
+            return false;
+
+        animator.Play(stateHash, animatorLayer, 0f);
+        return true;
+    }
+
+    private void RestoreRootMotion(AnimatorRootMotionState[] rootMotionStates)
+    {
+        if (rootMotionStates == null)
+            return;
+
+        for (int i = 0; i < rootMotionStates.Length; i++)
+        {
+            if (rootMotionStates[i].animator != null)
+                rootMotionStates[i].animator.applyRootMotion = rootMotionStates[i].applyRootMotion;
+        }
     }
 
     private IEnumerator MoveTransformKnockback(Transform target, NavMeshAgent agent, Vector3 direction)
@@ -303,6 +380,18 @@ public class PlayerMeleeCombat : MonoBehaviour
 
             behaviours[i].enabled = false;
             temporarilyDisabledWeapons.Add(behaviours[i]);
+        }
+    }
+
+    private readonly struct AnimatorRootMotionState
+    {
+        public readonly Animator animator;
+        public readonly bool applyRootMotion;
+
+        public AnimatorRootMotionState(Animator animator, bool applyRootMotion)
+        {
+            this.animator = animator;
+            this.applyRootMotion = applyRootMotion;
         }
     }
 }
