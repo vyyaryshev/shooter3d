@@ -29,7 +29,7 @@ public class MeleeHitMessage
 public class PlayerMeleeCombat : MonoBehaviour
 {
     [Header("Input")]
-    [SerializeField] private Key meleeKey = Key.F;
+    [SerializeField] private Key meleeModeKey = Key.F;
     [SerializeField] private float cooldown = 0.8f;
 
     [Header("Aim")]
@@ -50,7 +50,7 @@ public class PlayerMeleeCombat : MonoBehaviour
 
     [Header("Attack State")]
     [SerializeField] private float attackLockDuration = 0.35f;
-    [SerializeField] private bool disableWeaponsDuringAttack = true;
+    [SerializeField] private bool disableWeaponsInMeleeMode = true;
 
     [Header("Enemy Stun Animation")]
     [SerializeField] private string stunStateName = "Stun";
@@ -68,9 +68,11 @@ public class PlayerMeleeCombat : MonoBehaviour
     };
 
     private readonly Dictionary<GameObject, Coroutine> activeStuns = new Dictionary<GameObject, Coroutine>();
-    private readonly List<Behaviour> temporarilyDisabledWeapons = new List<Behaviour>();
+    private readonly List<Behaviour> modeDisabledWeapons = new List<Behaviour>();
 
     private float nextAttackTime;
+    private float attackLockUntil;
+    private bool meleeMode;
 
     private void Awake()
     {
@@ -86,21 +88,66 @@ public class PlayerMeleeCombat : MonoBehaviour
         if (Keyboard.current == null)
             return;
 
-        KeyControl keyControl = Keyboard.current[meleeKey];
+        KeyControl keyControl = Keyboard.current[meleeModeKey];
         if (keyControl != null && keyControl.wasPressedThisFrame)
+            ToggleMeleeMode();
+
+        if (!meleeMode || Mouse.current == null)
+            return;
+
+        if (Mouse.current.leftButton.wasPressedThisFrame)
             TryAttack();
+    }
+
+    private void OnDisable()
+    {
+        if (meleeMode)
+            ExitMeleeMode();
+    }
+
+    public bool IsMeleeMode()
+    {
+        return meleeMode;
+    }
+
+    public void ToggleMeleeMode()
+    {
+        if (meleeMode)
+            ExitMeleeMode();
+        else
+            EnterMeleeMode();
+    }
+
+    public void EnterMeleeMode()
+    {
+        if (meleeMode)
+            return;
+
+        meleeMode = true;
+        gameObject.SendMessage("PlayerMeleeModeEntered", SendMessageOptions.DontRequireReceiver);
+
+        if (disableWeaponsInMeleeMode)
+            DisableWeaponsForMeleeMode();
+    }
+
+    public void ExitMeleeMode()
+    {
+        if (!meleeMode)
+            return;
+
+        meleeMode = false;
+        gameObject.SendMessage("PlayerMeleeModeExited", SendMessageOptions.DontRequireReceiver);
+        RestoreWeaponsAfterMeleeMode();
     }
 
     public void TryAttack()
     {
-        if (Time.time < nextAttackTime || aimCamera == null)
+        if (!meleeMode || Time.time < nextAttackTime || Time.time < attackLockUntil || aimCamera == null)
             return;
 
         nextAttackTime = Time.time + cooldown;
+        attackLockUntil = Time.time + attackLockDuration;
         gameObject.SendMessage("PlayerMeleeAttackStarted", SendMessageOptions.DontRequireReceiver);
-
-        if (disableWeaponsDuringAttack)
-            StartCoroutine(DisableWeaponsBriefly());
 
         if (TryFindTarget(out RaycastHit hit, out Health health))
             ApplyHit(hit, health);
@@ -354,21 +401,22 @@ public class PlayerMeleeCombat : MonoBehaviour
         }
     }
 
-    private IEnumerator DisableWeaponsBriefly()
+    private void DisableWeaponsForMeleeMode()
     {
-        temporarilyDisabledWeapons.Clear();
+        RestoreWeaponsAfterMeleeMode();
         DisableWeaponBehaviours(GetComponentsInChildren<FpsWeaponController>(true));
         DisableWeaponBehaviours(GetComponentsInChildren<Shoot>(true));
+    }
 
-        yield return new WaitForSeconds(attackLockDuration);
-
-        for (int i = 0; i < temporarilyDisabledWeapons.Count; i++)
+    private void RestoreWeaponsAfterMeleeMode()
+    {
+        for (int i = 0; i < modeDisabledWeapons.Count; i++)
         {
-            if (temporarilyDisabledWeapons[i] != null)
-                temporarilyDisabledWeapons[i].enabled = true;
+            if (modeDisabledWeapons[i] != null)
+                modeDisabledWeapons[i].enabled = true;
         }
 
-        temporarilyDisabledWeapons.Clear();
+        modeDisabledWeapons.Clear();
     }
 
     private void DisableWeaponBehaviours(Behaviour[] behaviours)
@@ -379,7 +427,7 @@ public class PlayerMeleeCombat : MonoBehaviour
                 continue;
 
             behaviours[i].enabled = false;
-            temporarilyDisabledWeapons.Add(behaviours[i]);
+            modeDisabledWeapons.Add(behaviours[i]);
         }
     }
 
