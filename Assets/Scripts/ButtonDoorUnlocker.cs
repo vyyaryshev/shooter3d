@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 public class ButtonDoorUnlocker : MonoBehaviour
 {
     [Header("Buttons")]
@@ -14,6 +18,7 @@ public class ButtonDoorUnlocker : MonoBehaviour
     [SerializeField] private Vector3 localOpenOffset = new Vector3(3f, 0f, 0f);
     [SerializeField] private float openDuration = 1.5f;
     [SerializeField] private AnimationCurve openCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    [SerializeField] private bool clearStaticFlagsInEditor = true;
 
     [Header("Events")]
     [SerializeField] private UnityEvent unlocked;
@@ -32,6 +37,8 @@ public class ButtonDoorUnlocker : MonoBehaviour
 
         closedPosition = door.position;
         openedPosition = openedTarget != null ? openedTarget.position : door.TransformPoint(localOpenOffset);
+
+        WarnIfDoorLooksStatic();
     }
 
     private void OnEnable()
@@ -114,5 +121,49 @@ public class ButtonDoorUnlocker : MonoBehaviour
     {
         if (door == null)
             door = transform;
+
+        ClearStaticFlags();
+    }
+
+    private void WarnIfDoorLooksStatic()
+    {
+        if (door == null)
+            return;
+
+        Transform[] doorParts = door.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < doorParts.Length; i++)
+        {
+            if (doorParts[i] != null && doorParts[i].gameObject.isStatic)
+            {
+                Debug.LogWarning(
+                    $"{nameof(ButtonDoorUnlocker)} on {name}: moving door part '{doorParts[i].name}' is Static. " +
+                    "Static objects can keep their rendered mesh in place while colliders move. Disable Static on the door and its children.",
+                    doorParts[i]);
+                return;
+            }
+        }
+    }
+
+    private void ClearStaticFlags()
+    {
+#if UNITY_EDITOR
+        if (!clearStaticFlagsInEditor || door == null)
+            return;
+
+        Transform[] doorParts = door.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < doorParts.Length; i++)
+        {
+            if (doorParts[i] == null)
+                continue;
+
+            GameObject part = doorParts[i].gameObject;
+            StaticEditorFlags staticFlags = GameObjectUtility.GetStaticEditorFlags(part);
+            if (staticFlags == 0)
+                continue;
+
+            GameObjectUtility.SetStaticEditorFlags(part, 0);
+            EditorUtility.SetDirty(part);
+        }
+#endif
     }
 }
