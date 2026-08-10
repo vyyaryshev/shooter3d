@@ -1,9 +1,17 @@
 using System.Collections;
 using UnityEngine;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 [DisallowMultipleComponent]
 public class HoverPlatformMover : MonoBehaviour
 {
+    [Header("Platform")]
+    [SerializeField] private Transform platformRoot;
+    [SerializeField] private bool clearStaticFlagsInEditor = true;
+
     [Header("Points")]
     [SerializeField] private Transform pointA;
     [SerializeField] private Transform pointB;
@@ -26,13 +34,18 @@ public class HoverPlatformMover : MonoBehaviour
 
     private void Awake()
     {
-        platformRigidbody = GetComponent<Rigidbody>();
+        if (platformRoot == null)
+            platformRoot = transform;
+
+        platformRigidbody = platformRoot.GetComponent<Rigidbody>();
 
         if (platformRigidbody != null && useRigidbodyMovement)
         {
             platformRigidbody.isKinematic = true;
             platformRigidbody.interpolation = RigidbodyInterpolation.Interpolate;
         }
+
+        WarnIfPlatformLooksStatic();
     }
 
     private void OnEnable()
@@ -105,7 +118,7 @@ public class HoverPlatformMover : MonoBehaviour
         if (platformRigidbody != null && useRigidbodyMovement)
             platformRigidbody.MovePosition(position);
         else
-            transform.position = position;
+            platformRoot.position = position;
     }
 
     private void OnTriggerEnter(Collider other)
@@ -115,7 +128,7 @@ public class HoverPlatformMover : MonoBehaviour
 
         currentPassenger = other.transform;
         originalPassengerParent = currentPassenger.parent;
-        currentPassenger.SetParent(transform, true);
+        currentPassenger.SetParent(platformRoot, true);
     }
 
     private void OnTriggerExit(Collider other)
@@ -138,10 +151,57 @@ public class HoverPlatformMover : MonoBehaviour
 
     private void OnValidate()
     {
+        if (platformRoot == null)
+            platformRoot = transform;
+
         if (speed < 0f)
             speed = 0f;
 
         if (waitAtPoint < 0f)
             waitAtPoint = 0f;
+
+        ClearStaticFlags();
+    }
+
+    private void WarnIfPlatformLooksStatic()
+    {
+        if (platformRoot == null)
+            return;
+
+        Transform[] parts = platformRoot.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (parts[i] != null && parts[i].gameObject.isStatic)
+            {
+                Debug.LogWarning(
+                    $"{nameof(HoverPlatformMover)} on {name}: platform part '{parts[i].name}' is Static. " +
+                    "Moving LOD platforms and their child renderers must not be Static.",
+                    parts[i]);
+                return;
+            }
+        }
+    }
+
+    private void ClearStaticFlags()
+    {
+#if UNITY_EDITOR
+        if (!clearStaticFlagsInEditor || platformRoot == null)
+            return;
+
+        Transform[] parts = platformRoot.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (parts[i] == null)
+                continue;
+
+            GameObject part = parts[i].gameObject;
+            StaticEditorFlags flags = GameObjectUtility.GetStaticEditorFlags(part);
+            if (flags == 0)
+                continue;
+
+            GameObjectUtility.SetStaticEditorFlags(part, 0);
+            EditorUtility.SetDirty(part);
+        }
+#endif
     }
 }
