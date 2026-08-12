@@ -15,6 +15,8 @@
 - Treat this as a learning project: when fixing bugs or writing scripts, briefly explain the important Unity concepts involved.
 - Do not overwrite unrelated scene, prefab, material, or ProjectSettings changes.
 - The working tree may already contain user changes. Never revert them unless the user explicitly asks.
+- When changing Unity scenes, prefabs, or serialized assets, use the latest saved state on disk as the source of truth; unsaved Editor changes are not visible from the filesystem.
+- If the user has been editing in Unity, ask them to save the scene/project before making scene or prefab changes.
 - After completing any task, create a git commit that contains only the files changed for that task.
 - After creating a commit, immediately push it to the remote branch.
 - Before committing, check `git status --short` and stage only the intended files.
@@ -34,6 +36,7 @@
 ## Testing and Verification
 
 - For script changes, run a compile check through Unity when feasible.
+- Do not use Play Mode as an automatic verification step if the user reports that entering Play Mode deletes or rolls back their latest scene/prefab state.
 - If Unity cannot be run from the terminal, state that explicitly in the final response.
 - For gameplay changes, describe the manual scene test that should be performed in the Editor.
 - Watch for common Unity issues: missing serialized references, tag/layer mismatches, prefab overrides, NavMesh data changes, and scene objects renamed outside scripts.
