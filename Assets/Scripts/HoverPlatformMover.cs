@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 #if UNITY_EDITOR
@@ -26,11 +27,13 @@ public class HoverPlatformMover : MonoBehaviour
     [Header("Passenger")]
     [SerializeField] private bool parentPlayerWhileOnPlatform = true;
     [SerializeField] private string playerTag = "Player";
+    [SerializeField] private float topContactDot = 0.45f;
 
     private Rigidbody platformRigidbody;
     private Coroutine moveRoutine;
     private Transform currentPassenger;
     private Transform originalPassengerParent;
+    private readonly HashSet<Collider> passengerContacts = new HashSet<Collider>();
 
     private void Awake()
     {
@@ -123,20 +126,115 @@ public class HoverPlatformMover : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (!parentPlayerWhileOnPlatform || currentPassenger != null || !other.CompareTag(playerTag))
+        if (!parentPlayerWhileOnPlatform || !TryGetPassenger(other, out Transform passenger))
             return;
 
-        currentPassenger = other.transform;
-        originalPassengerParent = currentPassenger.parent;
-        currentPassenger.SetParent(platformRoot, true);
+        passengerContacts.Add(other);
+        AttachPassenger(passenger);
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (!parentPlayerWhileOnPlatform || currentPassenger == null || other.transform != currentPassenger)
+        if (!parentPlayerWhileOnPlatform || !passengerContacts.Remove(other))
             return;
 
-        ReleasePassenger();
+        if (passengerContacts.Count == 0)
+            ReleasePassenger();
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        TryAttachPassengerFromCollision(collision);
+    }
+
+    private void OnCollisionStay(Collision collision)
+    {
+        TryAttachPassengerFromCollision(collision);
+    }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        if (!parentPlayerWhileOnPlatform)
+            return;
+
+        if (passengerContacts.Remove(collision.collider) && passengerContacts.Count == 0)
+            ReleasePassenger();
+    }
+
+    private void TryAttachPassengerFromCollision(Collision collision)
+    {
+        if (!parentPlayerWhileOnPlatform || !HasTopContact(collision))
+            return;
+
+        for (int i = 0; i < collision.contactCount; i++)
+        {
+            ContactPoint contact = collision.GetContact(i);
+            Collider passengerCollider = TryGetPassenger(contact.otherCollider, out _) ? contact.otherCollider : contact.thisCollider;
+            if (!TryGetPassenger(passengerCollider, out Transform passenger))
+                continue;
+
+            passengerContacts.Add(passengerCollider);
+            AttachPassenger(passenger);
+        }
+    }
+
+    private bool HasTopContact(Collision collision)
+    {
+        Vector3 up = platformRoot != null ? platformRoot.up : transform.up;
+
+        for (int i = 0; i < collision.contactCount; i++)
+        {
+            ContactPoint contact = collision.GetContact(i);
+            if (Vector3.Dot(contact.normal, up) >= topContactDot)
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool TryGetPassenger(Collider passengerCollider, out Transform passenger)
+    {
+        passenger = null;
+
+        if (passengerCollider == null)
+            return false;
+
+        Transform taggedTransform = FindTaggedTransform(passengerCollider.transform);
+        if (taggedTransform == null && passengerCollider.attachedRigidbody != null)
+            taggedTransform = FindTaggedTransform(passengerCollider.attachedRigidbody.transform);
+
+        if (taggedTransform == null)
+            return false;
+
+        passenger = taggedTransform;
+        return true;
+    }
+
+    private Transform FindTaggedTransform(Transform start)
+    {
+        Transform current = start;
+        while (current != null)
+        {
+            if (current.CompareTag(playerTag))
+                return current;
+
+            current = current.parent;
+        }
+
+        return null;
+    }
+
+    private void AttachPassenger(Transform passenger)
+    {
+        if (currentPassenger == passenger)
+            return;
+
+        if (currentPassenger != null)
+            ReleasePassenger();
+
+        currentPassenger = passenger;
+        originalPassengerParent = currentPassenger.parent;
+        currentPassenger.SetParent(platformRoot, true);
     }
 
     private void ReleasePassenger()
@@ -147,6 +245,7 @@ public class HoverPlatformMover : MonoBehaviour
         currentPassenger.SetParent(originalPassengerParent, true);
         currentPassenger = null;
         originalPassengerParent = null;
+        passengerContacts.Clear();
     }
 
     private void OnValidate()
@@ -159,6 +258,8 @@ public class HoverPlatformMover : MonoBehaviour
 
         if (waitAtPoint < 0f)
             waitAtPoint = 0f;
+
+        topContactDot = Mathf.Clamp(topContactDot, -1f, 1f);
 
         ClearStaticFlags();
     }
