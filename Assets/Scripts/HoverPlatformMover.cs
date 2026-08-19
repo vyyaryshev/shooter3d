@@ -28,9 +28,17 @@ public class HoverPlatformMover : MonoBehaviour
     [SerializeField] private bool parentPlayerWhileOnPlatform = true;
     [SerializeField] private string playerTag = "Player";
     [SerializeField] private float topContactDot = 0.45f;
+    [SerializeField] private bool usePlayerLandingProbe = true;
+    [SerializeField] private float playerSearchInterval = 0.5f;
+    [SerializeField] private float landingProbeExtraDistance = 0.25f;
+    [SerializeField] private LayerMask landingProbeMask = ~0;
 
     private Rigidbody platformRigidbody;
     private Coroutine moveRoutine;
+    private Transform player;
+    private Collider playerCollider;
+    private float nextPlayerSearchTime;
+    private bool attachedByLandingProbe;
     private Transform currentPassenger;
     private Transform originalPassengerParent;
     private readonly HashSet<Collider> passengerContacts = new HashSet<Collider>();
@@ -72,6 +80,11 @@ public class HoverPlatformMover : MonoBehaviour
         }
 
         ReleasePassenger();
+    }
+
+    private void Update()
+    {
+        UpdateLandingProbe();
     }
 
     private IEnumerator MoveBetweenPoints()
@@ -122,6 +135,73 @@ public class HoverPlatformMover : MonoBehaviour
             platformRigidbody.MovePosition(position);
         else
             platformRoot.position = position;
+    }
+
+    private void UpdateLandingProbe()
+    {
+        if (!parentPlayerWhileOnPlatform || !usePlayerLandingProbe)
+            return;
+
+        EnsurePlayerReference();
+        if (player == null || playerCollider == null)
+            return;
+
+        bool isStandingOnPlatform = IsPlayerStandingOnPlatform();
+        if (isStandingOnPlatform)
+        {
+            attachedByLandingProbe = true;
+            AttachPassenger(player);
+            return;
+        }
+
+        if (attachedByLandingProbe && passengerContacts.Count == 0)
+            ReleasePassenger();
+    }
+
+    private void EnsurePlayerReference()
+    {
+        if (player != null && playerCollider != null)
+            return;
+
+        if (Time.time < nextPlayerSearchTime)
+            return;
+
+        nextPlayerSearchTime = Time.time + playerSearchInterval;
+
+        GameObject playerObject = GameObject.FindGameObjectWithTag(playerTag);
+        if (playerObject == null)
+            return;
+
+        player = playerObject.transform;
+        playerCollider = playerObject.GetComponentInChildren<Collider>();
+    }
+
+    private bool IsPlayerStandingOnPlatform()
+    {
+        Bounds bounds = playerCollider.bounds;
+        Vector3 origin = bounds.center;
+        float distance = bounds.extents.y + landingProbeExtraDistance;
+
+        RaycastHit[] hits = Physics.RaycastAll(origin, Vector3.down, distance, landingProbeMask, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider hitCollider = hits[i].collider;
+            if (hitCollider == null || hitCollider.transform.IsChildOf(player))
+                continue;
+
+            if (IsPlatformCollider(hitCollider))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool IsPlatformCollider(Collider hitCollider)
+    {
+        if (platformRoot == null || hitCollider == null)
+            return false;
+
+        return hitCollider.transform == platformRoot || hitCollider.transform.IsChildOf(platformRoot);
     }
 
     private void OnTriggerEnter(Collider other)
@@ -242,6 +322,7 @@ public class HoverPlatformMover : MonoBehaviour
         if (currentPassenger == null)
             return;
 
+        attachedByLandingProbe = false;
         currentPassenger.SetParent(originalPassengerParent, true);
         currentPassenger = null;
         originalPassengerParent = null;
@@ -260,6 +341,8 @@ public class HoverPlatformMover : MonoBehaviour
             waitAtPoint = 0f;
 
         topContactDot = Mathf.Clamp(topContactDot, -1f, 1f);
+        playerSearchInterval = Mathf.Max(0.05f, playerSearchInterval);
+        landingProbeExtraDistance = Mathf.Max(0f, landingProbeExtraDistance);
 
         ClearStaticFlags();
     }
