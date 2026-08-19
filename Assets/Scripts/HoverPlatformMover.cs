@@ -37,10 +37,11 @@ public class HoverPlatformMover : MonoBehaviour
     private Coroutine moveRoutine;
     private Transform player;
     private Collider playerCollider;
+    private Rigidbody playerRigidbody;
     private float nextPlayerSearchTime;
     private bool attachedByLandingProbe;
     private Transform currentPassenger;
-    private Transform originalPassengerParent;
+    private Vector3 lastPlatformPosition;
     private readonly HashSet<Collider> passengerContacts = new HashSet<Collider>();
 
     private void Awake()
@@ -68,6 +69,7 @@ public class HoverPlatformMover : MonoBehaviour
         }
 
         SetPlatformPosition(startAtPointA ? pointA.position : pointB.position);
+        lastPlatformPosition = platformRoot.position;
         moveRoutine = StartCoroutine(MoveBetweenPoints());
     }
 
@@ -85,6 +87,12 @@ public class HoverPlatformMover : MonoBehaviour
     private void Update()
     {
         UpdateLandingProbe();
+    }
+
+    private void LateUpdate()
+    {
+        CarryPassengerByPlatformDelta();
+        lastPlatformPosition = platformRoot != null ? platformRoot.position : transform.position;
     }
 
     private IEnumerator MoveBetweenPoints()
@@ -174,6 +182,7 @@ public class HoverPlatformMover : MonoBehaviour
 
         player = playerObject.transform;
         playerCollider = playerObject.GetComponentInChildren<Collider>();
+        playerRigidbody = playerObject.GetComponent<Rigidbody>();
     }
 
     private bool IsPlayerStandingOnPlatform()
@@ -218,7 +227,7 @@ public class HoverPlatformMover : MonoBehaviour
         if (!parentPlayerWhileOnPlatform || !passengerContacts.Remove(other))
             return;
 
-        if (passengerContacts.Count == 0)
+        if (passengerContacts.Count == 0 && !attachedByLandingProbe)
             ReleasePassenger();
     }
 
@@ -237,7 +246,7 @@ public class HoverPlatformMover : MonoBehaviour
         if (!parentPlayerWhileOnPlatform)
             return;
 
-        if (passengerContacts.Remove(collision.collider) && passengerContacts.Count == 0)
+        if (passengerContacts.Remove(collision.collider) && passengerContacts.Count == 0 && !attachedByLandingProbe)
             ReleasePassenger();
     }
 
@@ -313,8 +322,24 @@ public class HoverPlatformMover : MonoBehaviour
             ReleasePassenger();
 
         currentPassenger = passenger;
-        originalPassengerParent = currentPassenger.parent;
-        currentPassenger.SetParent(platformRoot, true);
+        if (player == passenger && playerRigidbody == null)
+            playerRigidbody = passenger.GetComponent<Rigidbody>();
+    }
+
+    private void CarryPassengerByPlatformDelta()
+    {
+        if (currentPassenger == null || platformRoot == null)
+            return;
+
+        Vector3 platformDelta = platformRoot.position - lastPlatformPosition;
+        if (platformDelta.sqrMagnitude <= Mathf.Epsilon)
+            return;
+
+        Rigidbody passengerRigidbody = currentPassenger == player ? playerRigidbody : currentPassenger.GetComponent<Rigidbody>();
+        if (passengerRigidbody != null && !passengerRigidbody.isKinematic)
+            passengerRigidbody.position += platformDelta;
+        else
+            currentPassenger.position += platformDelta;
     }
 
     private void ReleasePassenger()
@@ -323,9 +348,7 @@ public class HoverPlatformMover : MonoBehaviour
             return;
 
         attachedByLandingProbe = false;
-        currentPassenger.SetParent(originalPassengerParent, true);
         currentPassenger = null;
-        originalPassengerParent = null;
         passengerContacts.Clear();
     }
 
