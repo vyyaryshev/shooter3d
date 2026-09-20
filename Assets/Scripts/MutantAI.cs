@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections;
 using UnityEngine.AI;
 
@@ -18,6 +18,7 @@ public class MutantAI : MonoBehaviour
     private NavMeshAgent agent;
     private Animator anim;
     private EnemyController enemyController;
+    private NavMeshActivationOnLanding landingActivation;
 
     [Header("Attack Settings")]
     public int damage = 20;
@@ -30,17 +31,21 @@ public class MutantAI : MonoBehaviour
         agent = GetComponent<NavMeshAgent>();
         anim = GetComponent<Animator>();
         enemyController = GetComponent<EnemyController>();
+        landingActivation = GetComponent<NavMeshActivationOnLanding>();
     }
 
     private void OnEnable()
     {
-        if (warpToNavMeshAfterSpawn)
+        if (warpToNavMeshAfterSpawn && IsLandingReady())
             StartCoroutine(WarpToNavMeshAfterSpawn());
     }
 
     void Start()
     {
         ResolvePlayer();
+
+        if (!IsLandingReady())
+            return;
 
         if (EnsureAgentOnNavMesh() && HasPatrolPoints())
             GoToNextPoint();
@@ -62,6 +67,7 @@ public class MutantAI : MonoBehaviour
     void Update()
     {
         if (enemyController != null && enemyController.IsDead()) return;
+        if (!IsLandingReady()) return;
         if (!EnsureAgentOnNavMesh()) return;
 
         ResolvePlayer();
@@ -172,6 +178,9 @@ public class MutantAI : MonoBehaviour
 
     public bool ForceWarpToNearestNavMesh()
     {
+        if (!IsLandingReady())
+            return false;
+
         if (agent == null || !agent.enabled)
             return false;
 
@@ -180,6 +189,11 @@ public class MutantAI : MonoBehaviour
 
         agent.Warp(hit.position);
         return agent.isOnNavMesh;
+    }
+
+    private bool IsLandingReady()
+    {
+        return landingActivation == null || landingActivation.IsActivated;
     }
 
     private bool HasPatrolPoints()

@@ -41,6 +41,7 @@ public class SoldierRangedAI : MonoBehaviour
     private NavMeshAgent agent;
     private Animator animator;
     private EnemyController enemyController;
+    private NavMeshActivationOnLanding landingActivation;
 
     private float nextPlayerSearchTime;
     private float nextShotTime;
@@ -58,6 +59,7 @@ public class SoldierRangedAI : MonoBehaviour
         agent = GetComponent<NavMeshAgent>();
         animator = GetComponentInChildren<Animator>();
         enemyController = GetComponent<EnemyController>();
+        landingActivation = GetComponent<NavMeshActivationOnLanding>();
 
         if (agent != null)
             agent.stoppingDistance = keepDistance;
@@ -70,7 +72,7 @@ public class SoldierRangedAI : MonoBehaviour
 
     private void OnEnable()
     {
-        if (warpToNavMeshAfterSpawn)
+        if (warpToNavMeshAfterSpawn && IsLandingReady())
             StartCoroutine(WarpToNavMeshAfterSpawn());
     }
 
@@ -83,6 +85,12 @@ public class SoldierRangedAI : MonoBehaviour
     {
         if (isDead || (enemyController != null && enemyController.IsDead()))
             return;
+
+        if (!IsLandingReady())
+        {
+            UpdateMovementAnimation(0f);
+            return;
+        }
 
         if (!EnsureAgentOnNavMesh())
         {
@@ -251,6 +259,9 @@ public class SoldierRangedAI : MonoBehaviour
 
     public bool ForceWarpToNearestNavMesh()
     {
+        if (!IsLandingReady())
+            return false;
+
         if (agent == null || !agent.enabled)
             return false;
 
@@ -259,6 +270,11 @@ public class SoldierRangedAI : MonoBehaviour
 
         agent.Warp(hit.position);
         return agent.isOnNavMesh;
+    }
+
+    private bool IsLandingReady()
+    {
+        return landingActivation == null || landingActivation.IsActivated;
     }
 
     private void ResolvePlayer(bool force)

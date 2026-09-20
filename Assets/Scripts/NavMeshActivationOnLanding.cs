@@ -14,6 +14,7 @@ public class NavMeshActivationOnLanding : MonoBehaviour
     [SerializeField] private float sampleRadius = 1.5f;
     [SerializeField] private float maxSnapDistance = 0.4f;
     [SerializeField] private float maxLandingVerticalSpeed = 0.2f;
+    [SerializeField] private bool startFallingOnEnable;
     [SerializeField] private bool makeRigidbodyKinematicAfterLanding = true;
 
     [Header("AI During Fall")]
@@ -27,35 +28,105 @@ public class NavMeshActivationOnLanding : MonoBehaviour
     };
 
     private bool isActivated;
+    private bool isFalling;
+    private bool cachedAgentSettings;
+    private bool originalUpdatePosition;
+    private bool originalUpdateRotation;
     private MonoBehaviour[] autoDisabledBehaviours;
 
     public bool IsActivated => isActivated;
+    public bool IsFalling => isFalling;
 
     private void Awake()
     {
-        if (agent == null)
-            agent = GetComponent<NavMeshAgent>();
+        ResolveReferences();
+        CacheAgentSettings();
+        PrepareSuspended();
 
-        if (enemyRigidbody == null)
-            enemyRigidbody = GetComponent<Rigidbody>();
+        if (startFallingOnEnable)
+            BeginLanding();
+    }
+
+    private void OnEnable()
+    {
+        if (isActivated)
+            return;
+
+        PrepareSuspended();
+
+        if (startFallingOnEnable)
+            BeginLanding();
+    }
+
+    private void Start()
+    {
+        WarnIfNoSolidCollider();
+    }
+
+    public void BeginLanding()
+    {
+        if (isActivated || isFalling)
+            return;
+
+        isFalling = true;
+        ResolveReferences();
 
         if (disableAiUntilLanding)
             DisableAiBehaviours();
 
         if (agent != null)
+        {
+            agent.updatePosition = false;
+            agent.updateRotation = false;
             agent.enabled = false;
+        }
 
         if (enemyRigidbody != null)
         {
             enemyRigidbody.useGravity = true;
             enemyRigidbody.isKinematic = false;
             enemyRigidbody.constraints = RigidbodyConstraints.FreezeRotation;
+            enemyRigidbody.WakeUp();
+        }
+    }
+
+    public void BeginFall()
+    {
+        BeginLanding();
+    }
+
+    public void StartFalling()
+    {
+        BeginLanding();
+    }
+
+    private void PrepareSuspended()
+    {
+        ResolveReferences();
+
+        if (disableAiUntilLanding)
+            DisableAiBehaviours();
+
+        if (agent != null)
+        {
+            agent.updatePosition = false;
+            agent.updateRotation = false;
+            agent.enabled = false;
+        }
+
+        if (enemyRigidbody != null)
+        {
+            enemyRigidbody.linearVelocity = Vector3.zero;
+            enemyRigidbody.angularVelocity = Vector3.zero;
+            enemyRigidbody.useGravity = false;
+            enemyRigidbody.isKinematic = true;
+            enemyRigidbody.constraints = RigidbodyConstraints.FreezeRotation;
         }
     }
 
     private void Update()
     {
-        if (isActivated || agent == null)
+        if (isActivated || !isFalling || agent == null)
             return;
 
         if (!NavMesh.SamplePosition(transform.position, out NavMeshHit hit, sampleRadius, NavMesh.AllAreas))
@@ -73,6 +144,7 @@ public class NavMeshActivationOnLanding : MonoBehaviour
     private void ActivateAgent(Vector3 navMeshPosition)
     {
         isActivated = true;
+        isFalling = false;
 
         if (enemyRigidbody != null)
         {
@@ -88,15 +160,20 @@ public class NavMeshActivationOnLanding : MonoBehaviour
 
         transform.position = navMeshPosition;
         agent.enabled = true;
+        agent.updatePosition = originalUpdatePosition;
+        agent.updateRotation = originalUpdateRotation;
         agent.Warp(navMeshPosition);
         agent.isStopped = false;
 
         EnableAiBehaviours();
-        Debug.Log(gameObject.name + " активировал NavMeshAgent");
+        Debug.Log(gameObject.name + " activated NavMeshAgent after landing");
     }
 
     private void DisableAiBehaviours()
     {
+        if (autoDisabledBehaviours != null)
+            return;
+
         if (behavioursToEnableAfterLanding != null && behavioursToEnableAfterLanding.Length > 0)
         {
             for (int i = 0; i < behavioursToEnableAfterLanding.Length; i++)
@@ -164,6 +241,37 @@ public class NavMeshActivationOnLanding : MonoBehaviour
         return false;
     }
 
+    private void ResolveReferences()
+    {
+        if (agent == null)
+            agent = GetComponent<NavMeshAgent>();
+
+        if (enemyRigidbody == null)
+            enemyRigidbody = GetComponent<Rigidbody>();
+    }
+
+    private void CacheAgentSettings()
+    {
+        if (cachedAgentSettings || agent == null)
+            return;
+
+        originalUpdatePosition = agent.updatePosition;
+        originalUpdateRotation = agent.updateRotation;
+        cachedAgentSettings = true;
+    }
+
+    private void WarnIfNoSolidCollider()
+    {
+        Collider[] colliders = GetComponentsInChildren<Collider>();
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            if (colliders[i] != null && colliders[i].enabled && !colliders[i].isTrigger)
+                return;
+        }
+
+        Debug.LogWarning(gameObject.name + " has NavMeshActivationOnLanding, but no enabled non-trigger Collider. It cannot physically land.");
+    }
+
     private void OnValidate()
     {
         if (agent == null)
@@ -177,3 +285,4 @@ public class NavMeshActivationOnLanding : MonoBehaviour
         maxLandingVerticalSpeed = Mathf.Max(0f, maxLandingVerticalSpeed);
     }
 }
+
