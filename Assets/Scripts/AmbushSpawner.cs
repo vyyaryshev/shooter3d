@@ -15,6 +15,10 @@ public class AmbushSpawner : MonoBehaviour
     [SerializeField] private Transform spawnedEnemiesParent;
     [SerializeField] private float firstSpawnDelay;
     [SerializeField] private float spawnInterval = 0.5f;
+    [SerializeField] private bool randomizeSpawnInterval;
+    [SerializeField] private float minSpawnInterval = 0.25f;
+    [SerializeField] private float maxSpawnInterval = 1f;
+    [SerializeField] private float spawnPositionRadius = 0.5f;
     [SerializeField] private bool randomizeEnemies;
     [SerializeField] private bool randomizeSpawnPoints;
 
@@ -80,12 +84,14 @@ public class AmbushSpawner : MonoBehaviour
             Transform spawnPoint = GetSpawnPoint(i);
             Vector3 position = spawnPoint != null ? spawnPoint.position : transform.position;
             Quaternion rotation = spawnPoint != null ? spawnPoint.rotation : transform.rotation;
+            position += GetPositionOffset();
 
             GameObject enemy = Instantiate(prefab, position, rotation, spawnedEnemiesParent);
             SetupSpawnedEnemy(enemy);
 
-            if (spawnInterval > 0f && i < enemyPrefabs.Length - 1)
-                yield return new WaitForSeconds(spawnInterval);
+            float delay = GetSpawnDelay();
+            if (delay > 0f && i < enemyPrefabs.Length - 1)
+                yield return new WaitForSeconds(delay);
         }
 
         spawnRoutine = null;
@@ -108,6 +114,23 @@ public class AmbushSpawner : MonoBehaviour
             return spawnPoints[Random.Range(0, spawnPoints.Length)];
 
         return spawnPoints[index % spawnPoints.Length];
+    }
+
+    private Vector3 GetPositionOffset()
+    {
+        if (spawnPositionRadius <= 0f)
+            return Vector3.zero;
+
+        Vector2 offset = Random.insideUnitCircle * spawnPositionRadius;
+        return new Vector3(offset.x, 0f, offset.y);
+    }
+
+    private float GetSpawnDelay()
+    {
+        if (!randomizeSpawnInterval)
+            return spawnInterval;
+
+        return Random.Range(minSpawnInterval, maxSpawnInterval);
     }
 
     private void SetupSpawnedEnemy(GameObject enemy)
@@ -151,5 +174,8 @@ public class AmbushSpawner : MonoBehaviour
 
         firstSpawnDelay = Mathf.Max(0f, firstSpawnDelay);
         spawnInterval = Mathf.Max(0f, spawnInterval);
+        minSpawnInterval = Mathf.Max(0f, minSpawnInterval);
+        maxSpawnInterval = Mathf.Max(minSpawnInterval, maxSpawnInterval);
+        spawnPositionRadius = Mathf.Max(0f, spawnPositionRadius);
     }
 }
