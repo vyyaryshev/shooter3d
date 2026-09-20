@@ -17,6 +17,13 @@ public class NavMeshActivationOnLanding : MonoBehaviour
     [SerializeField] private bool startFallingOnEnable;
     [SerializeField] private bool makeRigidbodyKinematicAfterLanding = true;
 
+    [Header("Support Check")]
+    [SerializeField] private bool fallWhenSupportIsLost = true;
+    [SerializeField] private float groundCheckHeight = 0.25f;
+    [SerializeField] private float groundCheckDistance = 1.5f;
+    [SerializeField] private float maxStableSupportAngle = 45f;
+    [SerializeField] private LayerMask supportMask = ~0;
+
     [Header("AI During Fall")]
     [SerializeField] private bool disableAiUntilLanding = true;
     [SerializeField] private MonoBehaviour[] behavioursToEnableAfterLanding;
@@ -65,9 +72,10 @@ public class NavMeshActivationOnLanding : MonoBehaviour
 
     public void BeginLanding()
     {
-        if (isActivated || isFalling)
+        if (isFalling)
             return;
 
+        isActivated = false;
         isFalling = true;
         ResolveReferences();
 
@@ -126,6 +134,9 @@ public class NavMeshActivationOnLanding : MonoBehaviour
 
     private void Update()
     {
+        if (!isFalling)
+            CheckSupportBeforeFall();
+
         if (isActivated || !isFalling || agent == null)
             return;
 
@@ -139,6 +150,25 @@ public class NavMeshActivationOnLanding : MonoBehaviour
             return;
 
         ActivateAgent(hit.position);
+    }
+
+    private void CheckSupportBeforeFall()
+    {
+        if (!fallWhenSupportIsLost)
+            return;
+
+        Vector3 origin = transform.position + Vector3.up * groundCheckHeight;
+        float rayDistance = groundCheckHeight + groundCheckDistance;
+
+        if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, rayDistance, supportMask, QueryTriggerInteraction.Ignore))
+        {
+            BeginLanding();
+            return;
+        }
+
+        float supportAngle = Vector3.Angle(hit.normal, Vector3.up);
+        if (supportAngle > maxStableSupportAngle)
+            BeginLanding();
     }
 
     private void ActivateAgent(Vector3 navMeshPosition)
@@ -171,15 +201,23 @@ public class NavMeshActivationOnLanding : MonoBehaviour
 
     private void DisableAiBehaviours()
     {
-        if (autoDisabledBehaviours != null)
-            return;
-
         if (behavioursToEnableAfterLanding != null && behavioursToEnableAfterLanding.Length > 0)
         {
             for (int i = 0; i < behavioursToEnableAfterLanding.Length; i++)
             {
                 if (behavioursToEnableAfterLanding[i] != null)
                     behavioursToEnableAfterLanding[i].enabled = false;
+            }
+
+            return;
+        }
+
+        if (autoDisabledBehaviours != null)
+        {
+            for (int i = 0; i < autoDisabledBehaviours.Length; i++)
+            {
+                if (autoDisabledBehaviours[i] != null)
+                    autoDisabledBehaviours[i].enabled = false;
             }
 
             return;
