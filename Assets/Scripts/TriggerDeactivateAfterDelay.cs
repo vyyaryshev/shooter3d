@@ -4,6 +4,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class TriggerDeactivateAfterDelay : MonoBehaviour
 {
+    [SerializeField] private Collider triggerCollider;
     [SerializeField] private string playerTag = "Player";
     [SerializeField] private float delay = 3f;
     [SerializeField] private bool triggerOnce = true;
@@ -13,12 +14,21 @@ public class TriggerDeactivateAfterDelay : MonoBehaviour
 
     private void Awake()
     {
-        Collider triggerCollider = GetComponent<Collider>();
+        if (triggerCollider == null)
+            triggerCollider = GetComponent<Collider>();
+
         if (triggerCollider != null)
+        {
             triggerCollider.isTrigger = true;
+            TriggerDeactivateAfterDelayRelay relay = triggerCollider.GetComponent<TriggerDeactivateAfterDelayRelay>();
+            if (relay == null)
+                relay = triggerCollider.gameObject.AddComponent<TriggerDeactivateAfterDelayRelay>();
+
+            relay.Initialize(this);
+        }
     }
 
-    private void OnTriggerEnter(Collider other)
+    public void TriggerEntered(Collider other)
     {
         if (triggerOnce && triggered)
             return;
@@ -44,6 +54,29 @@ public class TriggerDeactivateAfterDelay : MonoBehaviour
 
     private void OnValidate()
     {
+        if (triggerCollider == null)
+            triggerCollider = GetComponent<Collider>();
+
+        if (triggerCollider != null)
+            triggerCollider.isTrigger = true;
+
         delay = Mathf.Max(0f, delay);
+    }
+}
+
+[DisallowMultipleComponent]
+public class TriggerDeactivateAfterDelayRelay : MonoBehaviour
+{
+    private TriggerDeactivateAfterDelay owner;
+
+    public void Initialize(TriggerDeactivateAfterDelay target)
+    {
+        owner = target;
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (owner != null)
+            owner.TriggerEntered(other);
     }
 }
