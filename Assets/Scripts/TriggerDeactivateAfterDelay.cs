@@ -5,7 +5,6 @@ using UnityEngine;
 public class TriggerDeactivateAfterDelay : MonoBehaviour
 {
     [SerializeField] private string playerTag = "Player";
-    [SerializeField] private GameObject objectToDeactivate;
     [SerializeField] private float delay = 3f;
     [SerializeField] private bool triggerOnce = true;
 
@@ -17,9 +16,6 @@ public class TriggerDeactivateAfterDelay : MonoBehaviour
         Collider triggerCollider = GetComponent<Collider>();
         if (triggerCollider != null)
             triggerCollider.isTrigger = true;
-
-        if (objectToDeactivate == null)
-            objectToDeactivate = gameObject;
     }
 
     private void OnTriggerEnter(Collider other)
@@ -43,8 +39,7 @@ public class TriggerDeactivateAfterDelay : MonoBehaviour
         if (delay > 0f)
             yield return new WaitForSeconds(delay);
 
-        if (objectToDeactivate != null)
-            objectToDeactivate.SetActive(false);
+        gameObject.SetActive(false);
     }
 
     private void OnValidate()
