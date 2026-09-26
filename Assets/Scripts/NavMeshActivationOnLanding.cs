@@ -18,6 +18,7 @@ public class NavMeshActivationOnLanding : MonoBehaviour
     [SerializeField] private bool makeRigidbodyKinematicAfterLanding = true;
 
     [Header("Support Check")]
+    [SerializeField] private bool requireGroundUnderFeet = true;
     [SerializeField] private bool fallWhenSupportIsLost = true;
     [SerializeField] private float groundCheckHeight = 0.25f;
     [SerializeField] private float groundCheckDistance = 1.5f;
@@ -135,7 +136,7 @@ public class NavMeshActivationOnLanding : MonoBehaviour
     private void Update()
     {
         if (!isFalling)
-            CheckSupportBeforeFall();
+            UpdateAgentByGroundSupport();
 
         if (isActivated || !isFalling || agent == null)
             return;
@@ -152,23 +153,47 @@ public class NavMeshActivationOnLanding : MonoBehaviour
         ActivateAgent(hit.position);
     }
 
-    private void CheckSupportBeforeFall()
+    private void UpdateAgentByGroundSupport()
     {
-        if (!fallWhenSupportIsLost)
+        if (!requireGroundUnderFeet)
             return;
 
+        if (!HasStableGroundUnderFeet())
+        {
+            if (fallWhenSupportIsLost)
+                BeginLanding();
+
+            return;
+        }
+
+        if (!isActivated)
+            TryActivateAgentAtCurrentPosition();
+    }
+
+    private bool HasStableGroundUnderFeet()
+    {
         Vector3 origin = transform.position + Vector3.up * groundCheckHeight;
         float rayDistance = groundCheckHeight + groundCheckDistance;
 
         if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, rayDistance, supportMask, QueryTriggerInteraction.Ignore))
-        {
-            BeginLanding();
-            return;
-        }
+            return false;
 
         float supportAngle = Vector3.Angle(hit.normal, Vector3.up);
-        if (supportAngle > maxStableSupportAngle)
-            BeginLanding();
+        return supportAngle <= maxStableSupportAngle;
+    }
+
+    private void TryActivateAgentAtCurrentPosition()
+    {
+        if (agent == null)
+            return;
+
+        if (!NavMesh.SamplePosition(transform.position, out NavMeshHit hit, sampleRadius, NavMesh.AllAreas))
+            return;
+
+        if (hit.distance > maxSnapDistance)
+            return;
+
+        ActivateAgent(hit.position);
     }
 
     private void ActivateAgent(Vector3 navMeshPosition)
@@ -321,6 +346,9 @@ public class NavMeshActivationOnLanding : MonoBehaviour
         sampleRadius = Mathf.Max(0.1f, sampleRadius);
         maxSnapDistance = Mathf.Max(0.01f, maxSnapDistance);
         maxLandingVerticalSpeed = Mathf.Max(0f, maxLandingVerticalSpeed);
+        groundCheckHeight = Mathf.Max(0f, groundCheckHeight);
+        groundCheckDistance = Mathf.Max(0.01f, groundCheckDistance);
+        maxStableSupportAngle = Mathf.Clamp(maxStableSupportAngle, 0f, 89f);
     }
 }
 
