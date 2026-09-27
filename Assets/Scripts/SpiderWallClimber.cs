@@ -24,6 +24,10 @@ public class SpiderWallClimber : MonoBehaviour
     [SerializeField] private float edgeProbeDistance = 0.35f;
     [SerializeField] private float surfaceSnapSpeed = 16f;
     [SerializeField] private float normalSmoothing = 14f;
+    [SerializeField] private bool ignoreCharactersAsSurfaces = true;
+    [SerializeField] private bool climbOnlyWhenShortensPath = true;
+    [SerializeField] private float minClimbDistanceGain = 0.5f;
+    [SerializeField] private float climbTransitionCost = 0.75f;
 
     [Header("Attack")]
     [SerializeField] private int damage = 15;
@@ -40,6 +44,7 @@ public class SpiderWallClimber : MonoBehaviour
     private float nextAttackTime;
     private bool isDead;
     private bool hasSpottedPlayer;
+    private Collider[] ownColliders;
 
     public Vector3 SurfaceNormal => surfaceNormal;
 
@@ -48,6 +53,7 @@ public class SpiderWallClimber : MonoBehaviour
         navMeshAgent = GetComponent<NavMeshAgent>();
         spiderRigidbody = GetComponent<Rigidbody>();
         enemyController = GetComponent<EnemyController>();
+        ownColliders = GetComponentsInChildren<Collider>();
 
         if (disableNavMeshAgent && navMeshAgent != null)
             navMeshAgent.enabled = false;
@@ -147,14 +153,90 @@ public class SpiderWallClimber : MonoBehaviour
 
         Vector3 forward = desiredMoveDirection.sqrMagnitude > 0.0001f ? desiredMoveDirection : transform.forward;
         Vector3 forwardOrigin = transform.position + surfaceNormal * surfaceOffset;
-        if (Physics.Raycast(forwardOrigin, forward, out surfaceHit, forwardProbeDistance, climbableMask, QueryTriggerInteraction.Ignore))
+        if (TryRaycastSurface(forwardOrigin, forward, forwardProbeDistance, true, out surfaceHit))
             return true;
 
-        if (Physics.Raycast(origin, -surfaceNormal, out surfaceHit, surfaceOffset + surfaceProbeDistance, climbableMask, QueryTriggerInteraction.Ignore))
+        if (TryRaycastSurface(origin, -surfaceNormal, surfaceOffset + surfaceProbeDistance, false, out surfaceHit))
             return true;
 
         Vector3 edgeOrigin = transform.position + forward * edgeProbeDistance + surfaceNormal * surfaceOffset;
-        return Physics.Raycast(edgeOrigin, -surfaceNormal, out surfaceHit, surfaceOffset + surfaceProbeDistance, climbableMask, QueryTriggerInteraction.Ignore);
+        return TryRaycastSurface(edgeOrigin, -surfaceNormal, surfaceOffset + surfaceProbeDistance, false, out surfaceHit);
+    }
+
+    private bool TryRaycastSurface(Vector3 origin, Vector3 direction, float distance, bool candidateClimbTransition, out RaycastHit bestHit)
+    {
+        bestHit = default;
+        RaycastHit[] hits = Physics.RaycastAll(origin, direction, distance, climbableMask, QueryTriggerInteraction.Ignore);
+        if (hits == null || hits.Length == 0)
+            return false;
+
+        float bestDistance = float.PositiveInfinity;
+        bool found = false;
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            RaycastHit hit = hits[i];
+            if (hit.collider == null || !IsValidSurface(hit, candidateClimbTransition))
+                continue;
+
+            if (hit.distance >= bestDistance)
+                continue;
+
+            bestDistance = hit.distance;
+            bestHit = hit;
+            found = true;
+        }
+
+        return found;
+    }
+
+    private bool IsValidSurface(RaycastHit hit, bool candidateClimbTransition)
+    {
+        if (IsOwnCollider(hit.collider))
+            return false;
+
+        if (ignoreCharactersAsSurfaces && IsCharacterSurface(hit.collider))
+            return false;
+
+        if (candidateClimbTransition && climbOnlyWhenShortensPath && !DoesSurfaceShortenPath(hit))
+            return false;
+
+        return true;
+    }
+
+    private bool DoesSurfaceShortenPath(RaycastHit hit)
+    {
+        if (player == null)
+            return true;
+
+        float currentDistance = Vector3.Distance(transform.position, player.position);
+        float candidateDistance = Vector3.Distance(hit.point + hit.normal * surfaceOffset, player.position) + climbTransitionCost;
+        return candidateDistance <= currentDistance - minClimbDistanceGain;
+    }
+
+    private bool IsOwnCollider(Collider candidate)
+    {
+        if (candidate == null || ownColliders == null)
+            return false;
+
+        for (int i = 0; i < ownColliders.Length; i++)
+        {
+            if (ownColliders[i] == candidate)
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool IsCharacterSurface(Collider candidate)
+    {
+        Transform candidateRoot = candidate.transform.root;
+        if (candidateRoot == transform.root)
+            return true;
+
+        return candidate.GetComponentInParent<Health>() != null
+            || candidate.GetComponentInParent<EnemyController>() != null
+            || candidate.GetComponentInParent<SpiderWallClimber>() != null;
     }
 
     private void UpdateSurfaceAlignment(RaycastHit surfaceHit)
@@ -210,6 +292,8 @@ public class SpiderWallClimber : MonoBehaviour
         edgeProbeDistance = Mathf.Max(0.01f, edgeProbeDistance);
         surfaceSnapSpeed = Mathf.Max(0f, surfaceSnapSpeed);
         normalSmoothing = Mathf.Max(0f, normalSmoothing);
+        minClimbDistanceGain = Mathf.Max(0f, minClimbDistanceGain);
+        climbTransitionCost = Mathf.Max(0f, climbTransitionCost);
         damage = Mathf.Max(0, damage);
         attackDistance = Mathf.Max(0.01f, attackDistance);
         attackCooldown = Mathf.Max(0.01f, attackCooldown);
