@@ -20,6 +20,7 @@ public class SpiderProceduralWalker : MonoBehaviour
         [HideInInspector] public Vector3 stepTarget;
         [HideInInspector] public float stepProgress;
         [HideInInspector] public bool stepping;
+        [HideInInspector] public float legLength;
     }
 
     [Header("Legs")]
@@ -45,6 +46,10 @@ public class SpiderProceduralWalker : MonoBehaviour
     [SerializeField] private float movePrediction = 0.05f;
     [SerializeField] private int maxMovingLegs = 2;
 
+    [Header("Rotation Limits")]
+    [SerializeField] private float maxLegRotationAngle = 35f;
+    [SerializeField] private float rotationWeight = 0.65f;
+
     [Header("Movement Source")]
     [SerializeField] private Transform movementRoot;
     [SerializeField] private NavMeshAgent movementAgent;
@@ -52,8 +57,8 @@ public class SpiderProceduralWalker : MonoBehaviour
 
     [Header("Body")]
     [SerializeField] private Transform body;
-    [SerializeField] private bool animateBody = true;
-    [SerializeField] private float bodyBobHeight = 0.025f;
+    [SerializeField] private bool animateBody;
+    [SerializeField] private float bodyBobHeight = 0.01f;
     [SerializeField] private float bodyBobSpeed = 8f;
 
     private Vector3 lastPosition;
@@ -173,7 +178,9 @@ public class SpiderProceduralWalker : MonoBehaviour
 
             leg.startLocalRotation = leg.foot.localRotation;
             leg.homeLocalPosition = transform.InverseTransformPoint(leg.footEnd.position);
+            leg.legLength = Mathf.Max(0.001f, Vector3.Distance(leg.foot.position, leg.footEnd.position));
             leg.plantedPosition = ProjectToGround(transform.TransformPoint(leg.homeLocalPosition), leg.footEnd.position);
+            leg.plantedPosition = ClampTargetToLegReach(leg, leg.plantedPosition);
             leg.stepStart = leg.plantedPosition;
             leg.stepTarget = leg.plantedPosition;
             leg.stepProgress = 1f;
@@ -204,6 +211,7 @@ public class SpiderProceduralWalker : MonoBehaviour
                 continue;
 
             Vector3 desiredPosition = GetDesiredFootPosition(leg);
+            desiredPosition = ClampTargetToLegReach(leg, desiredPosition);
             float distance = Vector3.Distance(Flatten(leg.plantedPosition), Flatten(desiredPosition));
             if (distance < stepDistance)
                 continue;
@@ -238,7 +246,7 @@ public class SpiderProceduralWalker : MonoBehaviour
     {
         Vector3 homeWorld = transform.TransformPoint(leg.homeLocalPosition);
         Vector3 predicted = homeWorld + Flatten(velocity) * movePrediction;
-        return ProjectToGround(predicted, homeWorld);
+        return ClampTargetToLegReach(leg, ProjectToGround(predicted, homeWorld));
     }
 
     private Vector3 ProjectToGround(Vector3 originPosition, Vector3 fallback)
@@ -271,9 +279,25 @@ public class SpiderProceduralWalker : MonoBehaviour
             if (currentDirection.sqrMagnitude < 0.000001f || targetDirection.sqrMagnitude < 0.000001f)
                 continue;
 
+            float maxRadians = maxLegRotationAngle * Mathf.Deg2Rad;
+            targetDirection = Vector3.RotateTowards(currentDirection, targetDirection, maxRadians, 0f);
+
             Quaternion correction = Quaternion.FromToRotation(currentDirection, targetDirection);
-            leg.foot.rotation = correction * leg.foot.rotation;
+            Quaternion targetRotation = correction * leg.foot.rotation;
+            leg.foot.rotation = Quaternion.Slerp(leg.foot.rotation, targetRotation, rotationWeight);
         }
+    }
+
+    private Vector3 ClampTargetToLegReach(SpiderLeg leg, Vector3 target)
+    {
+        Vector3 origin = leg.foot.position;
+        Vector3 offset = target - origin;
+        float maxDistance = Mathf.Max(0.001f, leg.legLength * 0.95f);
+
+        if (offset.sqrMagnitude <= maxDistance * maxDistance)
+            return target;
+
+        return origin + offset.normalized * maxDistance;
     }
 
     private void UpdateBodyBob()
@@ -388,6 +412,8 @@ public class SpiderProceduralWalker : MonoBehaviour
         stepHeight = Mathf.Max(0f, stepHeight);
         movePrediction = Mathf.Max(0f, movePrediction);
         maxMovingLegs = Mathf.Clamp(maxMovingLegs, 1, 4);
+        maxLegRotationAngle = Mathf.Clamp(maxLegRotationAngle, 1f, 120f);
+        rotationWeight = Mathf.Clamp01(rotationWeight);
         bodyBobHeight = Mathf.Max(0f, bodyBobHeight);
         bodyBobSpeed = Mathf.Max(0f, bodyBobSpeed);
     }
