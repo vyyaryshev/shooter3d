@@ -8,6 +8,7 @@ public class SpiderProceduralWalker : MonoBehaviour
     private class SpiderLeg
     {
         public string footName;
+        public string footEndName;
         public Transform foot;
         public Transform footEnd;
         public float phaseOffset;
@@ -22,12 +23,13 @@ public class SpiderProceduralWalker : MonoBehaviour
     }
 
     [Header("Legs")]
+    [SerializeField] private bool useSpiderOrangeBoneChains = true;
     [SerializeField] private SpiderLeg[] legs =
     {
-        new SpiderLeg { footName = "Foot", phaseOffset = 0f },
-        new SpiderLeg { footName = "Foot.001", phaseOffset = 0.5f },
-        new SpiderLeg { footName = "Foot.002", phaseOffset = 0.5f },
-        new SpiderLeg { footName = "Foot.003", phaseOffset = 0f }
+        new SpiderLeg { footName = "Bone", footEndName = "Bone.002_end", phaseOffset = 0f },
+        new SpiderLeg { footName = "Bone.003", footEndName = "Bone.005_end", phaseOffset = 0.5f },
+        new SpiderLeg { footName = "Bone.006", footEndName = "Bone.008_end", phaseOffset = 0.5f },
+        new SpiderLeg { footName = "Bone.009", footEndName = "Bone.011_end", phaseOffset = 0f }
     };
 
     [Header("Ground")]
@@ -95,6 +97,9 @@ public class SpiderProceduralWalker : MonoBehaviour
 
     private void AutoFindLegs()
     {
+        if (useSpiderOrangeBoneChains)
+            SetupSpiderOrangeBoneChainNames();
+
         if (legs == null)
             return;
 
@@ -108,12 +113,51 @@ public class SpiderProceduralWalker : MonoBehaviour
 
             if (legs[i].footEnd == null && legs[i].foot != null)
             {
-                legs[i].footEnd = FindChildByName(legs[i].foot, legs[i].foot.name + "_end");
+                string endName = string.IsNullOrWhiteSpace(legs[i].footEndName) ? legs[i].foot.name + "_end" : legs[i].footEndName;
+                legs[i].footEnd = FindChildByName(legs[i].foot, endName);
 
                 if (legs[i].footEnd == null)
-                    legs[i].footEnd = FindChildByName(transform, legs[i].foot.name + "_end");
+                    legs[i].footEnd = FindChildByName(transform, endName);
             }
         }
+    }
+
+    private void SetupSpiderOrangeBoneChainNames()
+    {
+        EnsureLegArraySize(4);
+
+        SetLegNames(0, "Bone", "Bone.002_end", 0f);
+        SetLegNames(1, "Bone.003", "Bone.005_end", 0.5f);
+        SetLegNames(2, "Bone.006", "Bone.008_end", 0.5f);
+        SetLegNames(3, "Bone.009", "Bone.011_end", 0f);
+    }
+
+    private void EnsureLegArraySize(int size)
+    {
+        if (legs != null && legs.Length == size)
+            return;
+
+        SpiderLeg[] newLegs = new SpiderLeg[size];
+        for (int i = 0; i < size; i++)
+            newLegs[i] = i < (legs != null ? legs.Length : 0) && legs[i] != null ? legs[i] : new SpiderLeg();
+
+        legs = newLegs;
+    }
+
+    private void SetLegNames(int index, string footName, string footEndName, float phaseOffset)
+    {
+        if (legs[index] == null)
+            legs[index] = new SpiderLeg();
+
+        if (legs[index].foot != null && legs[index].foot.name != footName)
+            legs[index].foot = null;
+
+        if (legs[index].footEnd != null && legs[index].footEnd.name != footEndName)
+            legs[index].footEnd = null;
+
+        legs[index].footName = footName;
+        legs[index].footEndName = footEndName;
+        legs[index].phaseOffset = phaseOffset;
     }
 
     private void InitializeLegs()

@@ -10,14 +10,22 @@ public class SpiderBreakApartOnDeath : MonoBehaviour
     [SerializeField] private string[] autoBreakPointNames =
     {
         "Body",
-        "Foot",
-        "Foot_end",
-        "Foot.001",
-        "Foot.001_end",
-        "Foot.002",
-        "Foot.002_end",
-        "Foot.003",
-        "Foot.003_end"
+        "Bone",
+        "Bone.001",
+        "Bone.002",
+        "Bone.002_end",
+        "Bone.003",
+        "Bone.004",
+        "Bone.005",
+        "Bone.005_end",
+        "Bone.006",
+        "Bone.007",
+        "Bone.008",
+        "Bone.008_end",
+        "Bone.009",
+        "Bone.010",
+        "Bone.011",
+        "Bone.011_end"
     };
 
     [Header("Fragments")]
