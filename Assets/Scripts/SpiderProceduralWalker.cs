@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 [DisallowMultipleComponent]
 public class SpiderProceduralWalker : MonoBehaviour
@@ -36,11 +37,16 @@ public class SpiderProceduralWalker : MonoBehaviour
     [SerializeField] private float footGroundOffset = 0.02f;
 
     [Header("Step")]
-    [SerializeField] private float stepDistance = 0.18f;
+    [SerializeField] private float stepDistance = 0.04f;
     [SerializeField] private float stepDuration = 0.16f;
-    [SerializeField] private float stepHeight = 0.08f;
-    [SerializeField] private float movePrediction = 0.12f;
+    [SerializeField] private float stepHeight = 0.025f;
+    [SerializeField] private float movePrediction = 0.05f;
     [SerializeField] private int maxMovingLegs = 2;
+
+    [Header("Movement Source")]
+    [SerializeField] private Transform movementRoot;
+    [SerializeField] private NavMeshAgent movementAgent;
+    [SerializeField] private Rigidbody movementRigidbody;
 
     [Header("Body")]
     [SerializeField] private Transform body;
@@ -54,21 +60,29 @@ public class SpiderProceduralWalker : MonoBehaviour
 
     private void Awake()
     {
+        ResolveMovementSource();
+
         if (body == null)
             body = FindChildByName(transform, "Body");
 
         AutoFindLegs();
         InitializeLegs();
-        lastPosition = transform.position;
+        lastPosition = GetMovementPosition();
         if (body != null)
             startBodyLocalPosition = body.localPosition;
+    }
+
+    private void Start()
+    {
+        WarnAboutMissingLegs();
     }
 
     private void Update()
     {
         float deltaTime = Mathf.Max(Time.deltaTime, 0.0001f);
-        velocity = (transform.position - lastPosition) / deltaTime;
-        lastPosition = transform.position;
+        Vector3 currentPosition = GetMovementPosition();
+        velocity = GetMovementVelocity(currentPosition, deltaTime);
+        lastPosition = currentPosition;
 
         UpdateStepping(deltaTime);
         UpdateBodyBob();
@@ -93,7 +107,12 @@ public class SpiderProceduralWalker : MonoBehaviour
                 legs[i].foot = FindChildByName(transform, legs[i].footName);
 
             if (legs[i].footEnd == null && legs[i].foot != null)
+            {
                 legs[i].footEnd = FindChildByName(legs[i].foot, legs[i].foot.name + "_end");
+
+                if (legs[i].footEnd == null)
+                    legs[i].footEnd = FindChildByName(transform, legs[i].foot.name + "_end");
+            }
         }
     }
 
@@ -234,6 +253,53 @@ public class SpiderProceduralWalker : MonoBehaviour
         }
 
         return count;
+    }
+
+    private void ResolveMovementSource()
+    {
+        if (movementRoot == null)
+            movementRoot = transform;
+
+        if (movementAgent == null)
+            movementAgent = GetComponentInParent<NavMeshAgent>();
+
+        if (movementRigidbody == null)
+            movementRigidbody = GetComponentInParent<Rigidbody>();
+    }
+
+    private Vector3 GetMovementPosition()
+    {
+        if (movementRoot != null)
+            return movementRoot.position;
+
+        return transform.position;
+    }
+
+    private Vector3 GetMovementVelocity(Vector3 currentPosition, float deltaTime)
+    {
+        if (movementAgent != null && movementAgent.enabled)
+            return movementAgent.velocity;
+
+        if (movementRigidbody != null && !movementRigidbody.isKinematic)
+            return movementRigidbody.linearVelocity;
+
+        return (currentPosition - lastPosition) / deltaTime;
+    }
+
+    private void WarnAboutMissingLegs()
+    {
+        if (legs == null)
+            return;
+
+        for (int i = 0; i < legs.Length; i++)
+        {
+            SpiderLeg leg = legs[i];
+            if (IsValidLeg(leg))
+                continue;
+
+            string legName = leg != null ? leg.footName : "null";
+            Debug.LogWarning(name + ": SpiderProceduralWalker did not find leg '" + legName + "' or its _end transform.", this);
+        }
     }
 
     private bool IsValidLeg(SpiderLeg leg)
