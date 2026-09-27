@@ -54,6 +54,7 @@ public class SpiderProceduralWalker : MonoBehaviour
     [SerializeField] private Transform movementRoot;
     [SerializeField] private NavMeshAgent movementAgent;
     [SerializeField] private Rigidbody movementRigidbody;
+    [SerializeField] private SpiderWallClimber wallClimber;
 
     [Header("Body")]
     [SerializeField] private Transform body;
@@ -212,7 +213,7 @@ public class SpiderProceduralWalker : MonoBehaviour
 
             Vector3 desiredPosition = GetDesiredFootPosition(leg);
             desiredPosition = ClampTargetToLegReach(leg, desiredPosition);
-            float distance = Vector3.Distance(Flatten(leg.plantedPosition), Flatten(desiredPosition));
+            float distance = Vector3.Distance(ProjectOnSurface(leg.plantedPosition), ProjectOnSurface(desiredPosition));
             if (distance < stepDistance)
                 continue;
 
@@ -231,7 +232,7 @@ public class SpiderProceduralWalker : MonoBehaviour
 
         float t = SmoothStep(leg.stepProgress);
         Vector3 position = Vector3.Lerp(leg.stepStart, leg.stepTarget, t);
-        position += Vector3.up * Mathf.Sin(t * Mathf.PI) * stepHeight;
+        position += GetSurfaceNormal() * Mathf.Sin(t * Mathf.PI) * stepHeight;
 
         leg.plantedPosition = position;
 
@@ -245,16 +246,17 @@ public class SpiderProceduralWalker : MonoBehaviour
     private Vector3 GetDesiredFootPosition(SpiderLeg leg)
     {
         Vector3 homeWorld = transform.TransformPoint(leg.homeLocalPosition);
-        Vector3 predicted = homeWorld + Flatten(velocity) * movePrediction;
+        Vector3 predicted = homeWorld + ProjectDirectionOnSurface(velocity) * movePrediction;
         return ClampTargetToLegReach(leg, ProjectToGround(predicted, homeWorld));
     }
 
     private Vector3 ProjectToGround(Vector3 originPosition, Vector3 fallback)
     {
-        Vector3 rayOrigin = originPosition + Vector3.up * groundRayHeight;
+        Vector3 surfaceUp = GetSurfaceNormal();
+        Vector3 rayOrigin = originPosition + surfaceUp * groundRayHeight;
         float rayDistance = groundRayHeight + groundRayDistance;
 
-        if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, rayDistance, groundMask, QueryTriggerInteraction.Ignore))
+        if (Physics.Raycast(rayOrigin, -surfaceUp, out RaycastHit hit, rayDistance, groundMask, QueryTriggerInteraction.Ignore))
             return hit.point + hit.normal * footGroundOffset;
 
         return fallback;
@@ -305,9 +307,10 @@ public class SpiderProceduralWalker : MonoBehaviour
         if (!animateBody || body == null)
             return;
 
-        float horizontalSpeed = Flatten(velocity).magnitude;
+        Vector3 surfaceUp = GetSurfaceNormal();
+        float horizontalSpeed = ProjectDirectionOnSurface(velocity).magnitude;
         float bob = Mathf.Sin(Time.time * bodyBobSpeed) * bodyBobHeight * Mathf.Clamp01(horizontalSpeed);
-        body.localPosition = startBodyLocalPosition + Vector3.up * bob;
+        body.localPosition = startBodyLocalPosition + transform.InverseTransformDirection(surfaceUp) * bob;
     }
 
     private int CountMovingLegs()
@@ -333,6 +336,9 @@ public class SpiderProceduralWalker : MonoBehaviour
 
         if (movementRigidbody == null)
             movementRigidbody = GetComponentInParent<Rigidbody>();
+
+        if (wallClimber == null)
+            wallClimber = GetComponentInParent<SpiderWallClimber>();
     }
 
     private Vector3 GetMovementPosition()
@@ -352,6 +358,24 @@ public class SpiderProceduralWalker : MonoBehaviour
             return movementRigidbody.linearVelocity;
 
         return (currentPosition - lastPosition) / deltaTime;
+    }
+
+    private Vector3 GetSurfaceNormal()
+    {
+        if (wallClimber != null && wallClimber.enabled)
+            return wallClimber.SurfaceNormal;
+
+        return transform.up;
+    }
+
+    private Vector3 ProjectDirectionOnSurface(Vector3 value)
+    {
+        return Vector3.ProjectOnPlane(value, GetSurfaceNormal());
+    }
+
+    private Vector3 ProjectOnSurface(Vector3 position)
+    {
+        return Vector3.ProjectOnPlane(position, GetSurfaceNormal());
     }
 
     private void WarnAboutMissingLegs()
@@ -379,12 +403,6 @@ public class SpiderProceduralWalker : MonoBehaviour
     {
         value = Mathf.Clamp01(value);
         return value * value * (3f - 2f * value);
-    }
-
-    private static Vector3 Flatten(Vector3 value)
-    {
-        value.y = 0f;
-        return value;
     }
 
     private static Transform FindChildByName(Transform root, string childName)
