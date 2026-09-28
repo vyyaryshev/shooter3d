@@ -28,6 +28,10 @@ public class SpiderWallClimber : MonoBehaviour
     [SerializeField] private bool climbOnlyWhenShortensPath = true;
     [SerializeField] private float minClimbDistanceGain = 0.5f;
     [SerializeField] private float climbTransitionCost = 0.75f;
+    [SerializeField] private float elevatedTargetHeight = 1.0f;
+    [SerializeField] private float underTargetHorizontalDistance = 1.2f;
+    [SerializeField] private float elevatedTargetWallSearchRadius = 1.6f;
+    [SerializeField] private int elevatedTargetWallSearchRays = 12;
 
     [Header("Attack")]
     [SerializeField] private int damage = 15;
@@ -45,6 +49,7 @@ public class SpiderWallClimber : MonoBehaviour
     private bool isDead;
     private bool hasSpottedPlayer;
     private Collider[] ownColliders;
+    private bool targetIsElevated;
 
     public Vector3 SurfaceNormal => surfaceNormal;
 
@@ -73,6 +78,7 @@ public class SpiderWallClimber : MonoBehaviour
             return;
 
         ResolvePlayer(false);
+        UpdateTargetHeightState();
         UpdateDesiredDirection();
 
         if (!TryFindSurface(out RaycastHit surfaceHit))
@@ -90,7 +96,7 @@ public class SpiderWallClimber : MonoBehaviour
             return;
         }
 
-        if (distanceToPlayer > stopDistance)
+        if (distanceToPlayer > stopDistance && !ShouldWaitForClimbSurface())
             MoveOnSurface();
     }
 
@@ -147,8 +153,32 @@ public class SpiderWallClimber : MonoBehaviour
             desiredMoveDirection = Vector3.ProjectOnPlane(transform.forward, surfaceNormal).normalized;
     }
 
+    private void UpdateTargetHeightState()
+    {
+        targetIsElevated = false;
+
+        if (player == null)
+            return;
+
+        float heightDelta = player.position.y - transform.position.y;
+        targetIsElevated = heightDelta >= elevatedTargetHeight;
+    }
+
+    private bool ShouldWaitForClimbSurface()
+    {
+        if (!targetIsElevated || player == null || !IsMostlyHorizontalSurface())
+            return false;
+
+        Vector3 horizontalOffset = player.position - transform.position;
+        horizontalOffset.y = 0f;
+        return horizontalOffset.magnitude <= underTargetHorizontalDistance;
+    }
+
     private bool TryFindSurface(out RaycastHit surfaceHit)
     {
+        if (targetIsElevated && IsMostlyHorizontalSurface() && TryFindElevatedTargetClimbSurface(out surfaceHit))
+            return true;
+
         Vector3 origin = transform.position + surfaceNormal * surfaceOffset;
 
         Vector3 forward = desiredMoveDirection.sqrMagnitude > 0.0001f ? desiredMoveDirection : transform.forward;
@@ -161,6 +191,49 @@ public class SpiderWallClimber : MonoBehaviour
 
         Vector3 edgeOrigin = transform.position + forward * edgeProbeDistance + surfaceNormal * surfaceOffset;
         return TryRaycastSurface(edgeOrigin, -surfaceNormal, surfaceOffset + surfaceProbeDistance, false, out surfaceHit);
+    }
+
+    private bool TryFindElevatedTargetClimbSurface(out RaycastHit bestHit)
+    {
+        bestHit = default;
+
+        if (player == null)
+            return false;
+
+        Vector3 toPlayer = player.position - transform.position;
+        Vector3 preferredDirection = Vector3.ProjectOnPlane(toPlayer, Vector3.up).normalized;
+        if (preferredDirection.sqrMagnitude < 0.0001f)
+            preferredDirection = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+
+        int rayCount = Mathf.Max(1, elevatedTargetWallSearchRays);
+        float bestScore = float.NegativeInfinity;
+        bool found = false;
+
+        for (int i = 0; i < rayCount; i++)
+        {
+            float angle = rayCount == 1 ? 0f : Mathf.Lerp(-90f, 90f, i / (float)(rayCount - 1));
+            Vector3 direction = Quaternion.AngleAxis(angle, Vector3.up) * preferredDirection;
+            Vector3 origin = transform.position + Vector3.up * surfaceOffset;
+
+            if (!TryRaycastSurface(origin, direction, elevatedTargetWallSearchRadius, true, out RaycastHit hit))
+                continue;
+
+            if (Vector3.Dot(hit.normal, Vector3.up) > 0.65f)
+                continue;
+
+            float directionScore = Vector3.Dot(direction.normalized, preferredDirection);
+            float heightScore = Mathf.Clamp01((player.position.y - hit.point.y) / Mathf.Max(0.01f, elevatedTargetHeight));
+            float score = directionScore + heightScore - hit.distance * 0.1f;
+
+            if (score <= bestScore)
+                continue;
+
+            bestScore = score;
+            bestHit = hit;
+            found = true;
+        }
+
+        return found;
     }
 
     private bool TryRaycastSurface(Vector3 origin, Vector3 direction, float distance, bool candidateClimbTransition, out RaycastHit bestHit)
@@ -209,9 +282,21 @@ public class SpiderWallClimber : MonoBehaviour
         if (player == null)
             return true;
 
+        if (targetIsElevated && IsMostlyHorizontalSurface())
+        {
+            bool isWallLikeSurface = Vector3.Dot(hit.normal, Vector3.up) < 0.65f;
+            if (isWallLikeSurface)
+                return true;
+        }
+
         float currentDistance = Vector3.Distance(transform.position, player.position);
         float candidateDistance = Vector3.Distance(hit.point + hit.normal * surfaceOffset, player.position) + climbTransitionCost;
         return candidateDistance <= currentDistance - minClimbDistanceGain;
+    }
+
+    private bool IsMostlyHorizontalSurface()
+    {
+        return Vector3.Dot(surfaceNormal, Vector3.up) > 0.65f;
     }
 
     private bool IsOwnCollider(Collider candidate)
@@ -294,6 +379,10 @@ public class SpiderWallClimber : MonoBehaviour
         normalSmoothing = Mathf.Max(0f, normalSmoothing);
         minClimbDistanceGain = Mathf.Max(0f, minClimbDistanceGain);
         climbTransitionCost = Mathf.Max(0f, climbTransitionCost);
+        elevatedTargetHeight = Mathf.Max(0f, elevatedTargetHeight);
+        underTargetHorizontalDistance = Mathf.Max(0f, underTargetHorizontalDistance);
+        elevatedTargetWallSearchRadius = Mathf.Max(0.01f, elevatedTargetWallSearchRadius);
+        elevatedTargetWallSearchRays = Mathf.Max(1, elevatedTargetWallSearchRays);
         damage = Mathf.Max(0, damage);
         attackDistance = Mathf.Max(0.01f, attackDistance);
         attackCooldown = Mathf.Max(0.01f, attackCooldown);
