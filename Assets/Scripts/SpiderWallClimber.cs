@@ -32,6 +32,9 @@ public class SpiderWallClimber : MonoBehaviour
     [SerializeField] private float underTargetHorizontalDistance = 1.2f;
     [SerializeField] private float elevatedTargetWallSearchRadius = 1.6f;
     [SerializeField] private int elevatedTargetWallSearchRays = 12;
+    [SerializeField] private float edgeTopProbeHeight = 0.7f;
+    [SerializeField] private float edgeTopProbeForward = 0.7f;
+    [SerializeField] private float edgeTopProbeDown = 1.4f;
 
     [Header("Attack")]
     [SerializeField] private int damage = 15;
@@ -50,6 +53,7 @@ public class SpiderWallClimber : MonoBehaviour
     private bool hasSpottedPlayer;
     private Collider[] ownColliders;
     private bool targetIsElevated;
+    private bool targetIsLower;
 
     public Vector3 SurfaceNormal => surfaceNormal;
 
@@ -156,12 +160,14 @@ public class SpiderWallClimber : MonoBehaviour
     private void UpdateTargetHeightState()
     {
         targetIsElevated = false;
+        targetIsLower = false;
 
         if (player == null)
             return;
 
         float heightDelta = player.position.y - transform.position.y;
         targetIsElevated = heightDelta >= elevatedTargetHeight;
+        targetIsLower = heightDelta <= -elevatedTargetHeight;
     }
 
     private bool ShouldWaitForClimbSurface()
@@ -177,6 +183,12 @@ public class SpiderWallClimber : MonoBehaviour
     private bool TryFindSurface(out RaycastHit surfaceHit)
     {
         if (targetIsElevated && IsMostlyHorizontalSurface() && TryFindElevatedTargetClimbSurface(out surfaceHit))
+            return true;
+
+        if (targetIsLower && IsMostlyHorizontalSurface() && TryFindLowerTargetDescendSurface(out surfaceHit))
+            return true;
+
+        if (!IsMostlyHorizontalSurface() && TryFindEdgeLandingSurface(out surfaceHit))
             return true;
 
         Vector3 origin = transform.position + surfaceNormal * surfaceOffset;
@@ -236,6 +248,79 @@ public class SpiderWallClimber : MonoBehaviour
         return found;
     }
 
+    private bool TryFindLowerTargetDescendSurface(out RaycastHit bestHit)
+    {
+        bestHit = default;
+
+        if (player == null)
+            return false;
+
+        Vector3 toPlayer = player.position - transform.position;
+        Vector3 preferredDirection = Vector3.ProjectOnPlane(toPlayer, Vector3.up).normalized;
+        if (preferredDirection.sqrMagnitude < 0.0001f)
+            preferredDirection = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+
+        int rayCount = Mathf.Max(1, elevatedTargetWallSearchRays);
+        float bestScore = float.NegativeInfinity;
+        bool found = false;
+
+        for (int i = 0; i < rayCount; i++)
+        {
+            float angle = rayCount == 1 ? 0f : Mathf.Lerp(-90f, 90f, i / (float)(rayCount - 1));
+            Vector3 direction = Quaternion.AngleAxis(angle, Vector3.up) * preferredDirection;
+            Vector3 origin = transform.position + Vector3.up * surfaceOffset;
+
+            if (!TryRaycastSurface(origin, direction, elevatedTargetWallSearchRadius, true, out RaycastHit hit))
+                continue;
+
+            if (Vector3.Dot(hit.normal, Vector3.up) > 0.65f)
+                continue;
+
+            float directionScore = Vector3.Dot(direction.normalized, preferredDirection);
+            float descentScore = Mathf.Clamp01((hit.point.y - player.position.y) / Mathf.Max(0.01f, elevatedTargetHeight));
+            float score = directionScore + descentScore - hit.distance * 0.1f;
+
+            if (score <= bestScore)
+                continue;
+
+            bestScore = score;
+            bestHit = hit;
+            found = true;
+        }
+
+        return found;
+    }
+
+    private bool TryFindEdgeLandingSurface(out RaycastHit surfaceHit)
+    {
+        surfaceHit = default;
+
+        Vector3 forward = desiredMoveDirection.sqrMagnitude > 0.0001f ? desiredMoveDirection : transform.forward;
+        Vector3 tangentForward = Vector3.ProjectOnPlane(forward, surfaceNormal).normalized;
+        if (tangentForward.sqrMagnitude < 0.0001f)
+            tangentForward = transform.forward;
+
+        Vector3 probeOrigin = transform.position
+            + tangentForward * edgeTopProbeForward
+            + Vector3.up * edgeTopProbeHeight;
+
+        if (!TryRaycastSurface(probeOrigin, Vector3.down, edgeTopProbeDown, true, out RaycastHit hit))
+            return false;
+
+        bool isHorizontalSurface = Vector3.Dot(hit.normal, Vector3.up) > 0.65f;
+        if (!isHorizontalSurface)
+            return false;
+
+        if (targetIsElevated && hit.point.y + surfaceOffset < transform.position.y)
+            return false;
+
+        if (targetIsLower && hit.point.y - surfaceOffset > transform.position.y)
+            return false;
+
+        surfaceHit = hit;
+        return true;
+    }
+
     private bool TryRaycastSurface(Vector3 origin, Vector3 direction, float distance, bool candidateClimbTransition, out RaycastHit bestHit)
     {
         bestHit = default;
@@ -282,7 +367,7 @@ public class SpiderWallClimber : MonoBehaviour
         if (player == null)
             return true;
 
-        if (targetIsElevated && IsMostlyHorizontalSurface())
+        if ((targetIsElevated || targetIsLower) && IsMostlyHorizontalSurface())
         {
             bool isWallLikeSurface = Vector3.Dot(hit.normal, Vector3.up) < 0.65f;
             if (isWallLikeSurface)
@@ -383,6 +468,9 @@ public class SpiderWallClimber : MonoBehaviour
         underTargetHorizontalDistance = Mathf.Max(0f, underTargetHorizontalDistance);
         elevatedTargetWallSearchRadius = Mathf.Max(0.01f, elevatedTargetWallSearchRadius);
         elevatedTargetWallSearchRays = Mathf.Max(1, elevatedTargetWallSearchRays);
+        edgeTopProbeHeight = Mathf.Max(0.01f, edgeTopProbeHeight);
+        edgeTopProbeForward = Mathf.Max(0.01f, edgeTopProbeForward);
+        edgeTopProbeDown = Mathf.Max(0.01f, edgeTopProbeDown);
         damage = Mathf.Max(0, damage);
         attackDistance = Mathf.Max(0.01f, attackDistance);
         attackCooldown = Mathf.Max(0.01f, attackCooldown);
