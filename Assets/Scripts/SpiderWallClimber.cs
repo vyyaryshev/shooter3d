@@ -15,6 +15,7 @@ public class SpiderWallClimber : MonoBehaviour
     [SerializeField] private float stopDistance = 1.4f;
     [SerializeField] private bool disableNavMeshAgent = true;
     [SerializeField] private bool makeRigidbodyKinematic = true;
+    [SerializeField] private bool useEnemySeparation = true;
 
     [Header("Surface")]
     [SerializeField] private LayerMask climbableMask = ~0;
@@ -44,6 +45,7 @@ public class SpiderWallClimber : MonoBehaviour
     private NavMeshAgent navMeshAgent;
     private Rigidbody spiderRigidbody;
     private EnemyController enemyController;
+    private EnemySeparation enemySeparation;
 
     private Vector3 surfaceNormal = Vector3.up;
     private Vector3 desiredMoveDirection;
@@ -62,6 +64,15 @@ public class SpiderWallClimber : MonoBehaviour
         navMeshAgent = GetComponent<NavMeshAgent>();
         spiderRigidbody = GetComponent<Rigidbody>();
         enemyController = GetComponent<EnemyController>();
+        enemySeparation = GetComponent<EnemySeparation>();
+        if (useEnemySeparation)
+        {
+            if (enemySeparation == null)
+                enemySeparation = gameObject.AddComponent<EnemySeparation>();
+
+            enemySeparation.SetAutoApply(false);
+        }
+
         ownColliders = GetComponentsInChildren<Collider>();
 
         if (disableNavMeshAgent && navMeshAgent != null)
@@ -89,6 +100,7 @@ public class SpiderWallClimber : MonoBehaviour
             return;
 
         UpdateSurfaceAlignment(surfaceHit);
+        ApplyEnemySeparation();
 
         if (player == null)
             return;
@@ -435,6 +447,14 @@ public class SpiderWallClimber : MonoBehaviour
             hasSpottedPlayer = true;
             gameObject.SendMessage("EnemySpottedPlayer", SendMessageOptions.DontRequireReceiver);
         }
+    }
+
+    private void ApplyEnemySeparation()
+    {
+        if (!useEnemySeparation || enemySeparation == null)
+            return;
+
+        transform.position += enemySeparation.GetSeparationOffset(surfaceNormal, Time.deltaTime);
     }
 
     private void TryAttack()
