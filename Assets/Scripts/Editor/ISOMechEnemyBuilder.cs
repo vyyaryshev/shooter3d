@@ -47,9 +47,17 @@ public static class ISOMechEnemyBuilder
             foreach (Renderer renderer in renderers)
                 renderer.sharedMaterials = Enumerable.Repeat(material, renderer.sharedMaterials.Length).ToArray();
 
-            Animator animator = visual.GetComponentInChildren<Animator>();
+            Animator animator = visual.GetComponentInChildren<Animator>(true);
             if (animator == null)
-                throw new InvalidOperationException("The imported Mech model has no Animator.");
+            {
+                // Clips bind paths relative to the FBX root, not the outer prefab wrapper.
+                Transform modelRoot = visual.transform.Find("SK_ISO_Mech");
+                if (modelRoot == null)
+                    throw new InvalidOperationException("Missing SK_ISO_Mech model root in the source prefab.");
+                animator = modelRoot.gameObject.AddComponent<Animator>();
+                animator.avatar = AssetDatabase.LoadAllAssetsAtPath(Source + "Models/Mech/SK_ISO_Mech.fbx")
+                    .OfType<Avatar>().FirstOrDefault();
+            }
             AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(folder + "/MechEnemy.controller");
             AddState(controller, "Idle", "Idle", true);
             AddState(controller, "Walk", "WalkForward", true);
