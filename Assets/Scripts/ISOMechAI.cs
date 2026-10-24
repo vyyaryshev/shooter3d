@@ -10,6 +10,7 @@ public class ISOMechAI : MonoBehaviour
     [SerializeField, Min(1f)] private float detectionRange = 30f;
     [SerializeField, Min(0.1f)] private float shootingDistance = 10f;
     [SerializeField, Min(0f)] private float rotationSpeed = 180f;
+    [SerializeField, Min(0f)] private float turnAnimationThreshold = 5f;
     [SerializeField] private LayerMask sightMask = ~0;
 
     [Header("Guns")]
@@ -135,15 +136,18 @@ public class ISOMechAI : MonoBehaviour
             SendMessage("EnemySpottedPlayer", SendMessageOptions.DontRequireReceiver);
         }
 
+        Quaternion previousRotation = transform.rotation;
         Vector3 direction = Vector3.ProjectOnPlane(player.position - transform.position, Vector3.up);
         if (direction.sqrMagnitude > 0.001f)
             transform.rotation = Quaternion.RotateTowards(transform.rotation,
                 Quaternion.LookRotation(direction), rotationSpeed * Time.deltaTime);
+        bool turning = Quaternion.Angle(previousRotation, transform.rotation)
+            > turnAnimationThreshold * Time.deltaTime;
 
         if (swinging)
         {
             StopMoving();
-            PlayMovement(false);
+            PlayMovement(false, turning);
             float elapsed = Time.time - swingStarted;
             if (!hitApplied && elapsed >= windup)
             {
@@ -177,6 +181,7 @@ public class ISOMechAI : MonoBehaviour
             hitApplied = false;
             swingStarted = Time.time;
             StopMoving();
+            PlayMovement(false, turning);
             SendMessage("EnemyAttackStarted", SendMessageOptions.DontRequireReceiver);
             return;
         }
@@ -198,7 +203,7 @@ public class ISOMechAI : MonoBehaviour
 
         if (!approaching && distance <= shootingDistance + 2f && FacingTarget())
             TryShoot();
-        PlayMovement(agent.velocity.sqrMagnitude > 0.01f);
+        PlayMovement(agent.velocity.sqrMagnitude > 0.01f, turning);
     }
 
     private Vector3 AimPoint() => targetCollider != null
@@ -342,9 +347,10 @@ public class ISOMechAI : MonoBehaviour
             agent.isStopped = true;
     }
 
-    private void PlayMovement(bool moving)
+    private void PlayMovement(bool moving, bool turning = false)
     {
-        int state = moving ? WalkState : IdleState;
+        // Reuse the leg cycle so existing controllers also animate turns in place.
+        int state = moving || turning ? WalkState : IdleState;
         if (animationState == state || animator == null || !animator.HasState(0, state))
             return;
         animator.CrossFadeInFixedTime(state, 0.15f);
