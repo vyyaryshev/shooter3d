@@ -24,6 +24,13 @@ public class ISOMechAI : MonoBehaviour
     [SerializeField, Min(0f)] private float cannonAimSpeed = 180f;
     [SerializeField, Range(0f, 90f)] private float maxCannonAimAngle = 70f;
 
+    [Header("Rocket salvo (replaces bullets when assigned)")]
+    [SerializeField] private MechRocket rocketPrefab;
+    [SerializeField] private Transform rocketLaunchPoint;
+    [SerializeField] private Vector2Int rocketsPerSalvo = new Vector2Int(3, 5);
+    [SerializeField, Min(0.05f)] private float rocketLaunchInterval = 0.3f;
+    [SerializeField, Min(0.1f)] private float rocketSalvoCooldown = 8f;
+
     [Header("Periodic close attack")]
     [SerializeField] private Vector2 meleeInterval = new Vector2(6f, 10f);
     [SerializeField, Min(0.1f)] private float meleeRange = 3f;
@@ -45,6 +52,9 @@ public class ISOMechAI : MonoBehaviour
     private Quaternion[] cannonAimOffsets;
     private Vector3[] cannonAimAxes;
     private bool wantsShot;
+    private int rocketsRemaining;
+    private float nextRocketLaunch;
+    private float nextRocketSalvo;
     private bool poseApplied;
     private bool dead;
     private bool spotted;
@@ -108,7 +118,9 @@ public class ISOMechAI : MonoBehaviour
         }
         gunsReady = bulletPrefab != null && bulletPrefab.TryGetComponent<BulletController>(out _)
             && bulletPrefab.TryGetComponent<Rigidbody>(out _) && firePoints != null && firePoints.Length > 0;
-        if (!gunsReady)
+        if (rocketPrefab != null && rocketLaunchPoint == null)
+            Debug.LogWarning("ISOMechAI: assign Rocket Launch Point for rocket salvos.", this);
+        if (!gunsReady && rocketPrefab == null)
             Debug.LogWarning("ISOMechAI: assign fire points and a projectile with BulletController and Rigidbody.", this);
         if (animator == null || animator.runtimeAnimatorController == null)
             Debug.LogWarning("ISOMechAI: assign the generated Idle/Walk/Death Animator Controller.", this);
@@ -179,6 +191,7 @@ public class ISOMechAI : MonoBehaviour
 
         if (swinging)
         {
+            CancelRocketSalvo();
             StopMoving();
             PlayMovement(false, turning);
             float elapsed = Time.time - swingStarted;
@@ -238,7 +251,44 @@ public class ISOMechAI : MonoBehaviour
             StopMoving();
 
         wantsShot = !approaching && distance <= shootingDistance + 2f && FacingTarget();
+        if (rocketPrefab != null)
+        {
+            if (!approaching)
+                TryLaunchRockets(distance);
+            else
+                CancelRocketSalvo();
+        }
         PlayMovement(agent.velocity.sqrMagnitude > 0.01f, turning);
+    }
+
+    private void TryLaunchRockets(float distance)
+    {
+        if (rocketLaunchPoint == null)
+            return;
+        if (rocketsRemaining == 0)
+        {
+            if (Time.time < nextRocketSalvo || distance > shootingDistance + 2f || !FacingTarget())
+                return;
+            rocketsRemaining = Random.Range(rocketsPerSalvo.x, rocketsPerSalvo.y + 1);
+            nextRocketLaunch = Time.time;
+        }
+        if (Time.time < nextRocketLaunch)
+            return;
+        MechRocket rocket = Instantiate(rocketPrefab, rocketLaunchPoint.position,
+            Quaternion.LookRotation(Vector3.up, Vector3.forward));
+        rocket.Initialize(player, gameObject);
+        rocketsRemaining--;
+        nextRocketLaunch = Time.time + rocketLaunchInterval;
+        SendMessage("EnemyAttackStarted", SendMessageOptions.DontRequireReceiver);
+        if (rocketsRemaining == 0)
+            nextRocketSalvo = Time.time + rocketSalvoCooldown;
+    }
+
+    private void CancelRocketSalvo()
+    {
+        if (rocketsRemaining > 0)
+            nextRocketSalvo = Time.time + rocketSalvoCooldown;
+        rocketsRemaining = 0;
     }
 
     private Vector3 AimPoint() => targetCollider != null
@@ -355,7 +405,7 @@ public class ISOMechAI : MonoBehaviour
         }
         poseApplied = true;
         // Fire after Animator and procedural aiming have placed the barrel for this frame.
-        if (wantsShot)
+        if (wantsShot && rocketPrefab == null)
             TryShoot();
     }
 
@@ -397,6 +447,7 @@ public class ISOMechAI : MonoBehaviour
 
     private void CancelAttack()
     {
+        CancelRocketSalvo();
         if (approaching || swinging)
             ScheduleMelee();
         approaching = false;
@@ -432,5 +483,7 @@ public class ISOMechAI : MonoBehaviour
         meleeInterval.x = Mathf.Max(1f, meleeInterval.x);
         meleeInterval.y = Mathf.Max(meleeInterval.x, meleeInterval.y);
         shootingDistance = Mathf.Max(meleeRange + 0.5f, shootingDistance);
+        rocketsPerSalvo.x = Mathf.Clamp(rocketsPerSalvo.x, 3, 5);
+        rocketsPerSalvo.y = Mathf.Clamp(rocketsPerSalvo.y, rocketsPerSalvo.x, 5);
     }
 }

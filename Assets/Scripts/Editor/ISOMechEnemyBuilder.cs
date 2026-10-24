@@ -11,6 +11,26 @@ public static class ISOMechEnemyBuilder
 {
     private const string Source = "Assets/RSG_UnderWater_Pack/ISO/HDRP/";
 
+    [MenuItem("Tools/Shooter3D/Create Mech Rocket")]
+    public static void CreateRocketAsset()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            throw new InvalidOperationException("Create the rocket outside Play Mode.");
+        Scene preview = EditorSceneManager.NewPreviewScene();
+        try
+        {
+            string path = AssetDatabase.GenerateUniqueAssetPath("Assets/Prefabs/MechRocket.prefab");
+            MechRocket prefab = CreateRocket(path, preview);
+            AssetDatabase.SaveAssets();
+            Selection.activeObject = prefab.gameObject;
+            EditorGUIUtility.PingObject(prefab.gameObject);
+        }
+        finally
+        {
+            EditorSceneManager.ClosePreviewScene(preview);
+        }
+    }
+
     [MenuItem("Tools/Shooter3D/Create ISO Mech Enemy")]
     public static void CreateEnemy()
     {
@@ -103,6 +123,11 @@ public static class ISOMechEnemyBuilder
 
             SerializedObject settings = new SerializedObject(ai);
             settings.FindProperty("bulletPrefab").objectReferenceValue = CreateProjectile(folder, preview);
+            settings.FindProperty("rocketPrefab").objectReferenceValue = CreateRocket(folder + "/MechRocket.prefab", preview);
+            Transform launchPoint = new GameObject("RocketLaunchPoint").transform;
+            launchPoint.SetParent(root.transform, false);
+            launchPoint.localPosition = Vector3.up * 2.8f;
+            settings.FindProperty("rocketLaunchPoint").objectReferenceValue = launchPoint;
             AssignArray(settings.FindProperty("cannonBones"), bones);
             AssignArray(settings.FindProperty("firePoints"), muzzles);
             settings.ApplyModifiedPropertiesWithoutUndo();
@@ -182,5 +207,32 @@ public static class ISOMechEnemyBuilder
         property.arraySize = values.Length;
         for (int i = 0; i < values.Length; i++)
             property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+    }
+
+    private static MechRocket CreateRocket(string path, Scene preview)
+    {
+        GameObject rocket = new GameObject("Mech Rocket");
+        SceneManager.MoveGameObjectToScene(rocket, preview);
+        try
+        {
+            rocket.AddComponent<SphereCollider>().radius = 0.15f;
+            Rigidbody body = rocket.AddComponent<Rigidbody>();
+            body.useGravity = false;
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            body.constraints = RigidbodyConstraints.FreezeRotation;
+            rocket.AddComponent<MechRocket>();
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            SceneManager.MoveGameObjectToScene(visual, preview);
+            UnityEngine.Object.DestroyImmediate(visual.GetComponent<Collider>());
+            visual.name = "Visual";
+            visual.transform.SetParent(rocket.transform, false);
+            visual.transform.localScale = new Vector3(0.24f, 0.4f, 0.24f);
+            visual.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            return PrefabUtility.SaveAsPrefabAsset(rocket, path).GetComponent<MechRocket>();
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(rocket);
+        }
     }
 }
