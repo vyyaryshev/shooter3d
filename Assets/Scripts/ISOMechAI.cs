@@ -167,7 +167,10 @@ public class ISOMechAI : MonoBehaviour
         }
 
         Quaternion previousRotation = transform.rotation;
-        Vector3 direction = Vector3.ProjectOnPlane(player.position - transform.position, Vector3.up);
+        Vector3 lookPosition = player.position;
+        if (!swinging && !agent.isStopped && agent.hasPath && !agent.pathPending)
+            lookPosition = agent.steeringTarget;
+        Vector3 direction = Vector3.ProjectOnPlane(lookPosition - transform.position, Vector3.up);
         if (direction.sqrMagnitude > 0.001f)
             transform.rotation = Quaternion.RotateTowards(transform.rotation,
                 Quaternion.LookRotation(direction), rotationSpeed * Time.deltaTime);
@@ -218,11 +221,14 @@ public class ISOMechAI : MonoBehaviour
 
         float stopDistance = approaching ? meleeRange * 0.65f : shootingDistance;
         float distance = Vector3.Distance(transform.position, player.position);
-        if (distance > stopDistance || !HasSight(AimOrigin()))
+        bool hasSight = HasSight(AimOrigin());
+        if (distance > stopDistance || !hasSight)
         {
             agent.isStopped = false;
-            agent.stoppingDistance = stopDistance;
-            if (Time.time >= nextPathUpdate)
+            // Combat distance only applies with a clear shot. Behind a wall it can
+            // otherwise stop the agent before it reaches the corner of its route.
+            agent.stoppingDistance = hasSight ? stopDistance : 0.1f;
+            if (Time.time >= nextPathUpdate && !agent.pathPending)
             {
                 nextPathUpdate = Time.time + 0.2f;
                 agent.SetDestination(player.position);
