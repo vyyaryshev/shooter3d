@@ -21,6 +21,8 @@ public class ISOMechAI : MonoBehaviour
     [SerializeField, Min(0.1f)] private float shotInterval = 0.6f;
     [SerializeField, Min(1f)] private float bulletSpeed = 25f;
     [SerializeField, Min(0f)] private float recoilDistance = 0.08f;
+    [SerializeField, Min(0f)] private float cannonAimSpeed = 180f;
+    [SerializeField, Range(0f, 90f)] private float maxCannonAimAngle = 70f;
 
     [Header("Periodic close attack")]
     [SerializeField] private Vector2 meleeInterval = new Vector2(6f, 10f);
@@ -40,6 +42,9 @@ public class ISOMechAI : MonoBehaviour
     private readonly RaycastHit[] sightHits = new RaycastHit[32];
     private Vector3[] cannonPositions;
     private Quaternion[] cannonRotations;
+    private Quaternion[] cannonAimOffsets;
+    private Vector3[] cannonAimAxes;
+    private bool wantsShot;
     private bool poseApplied;
     private bool dead;
     private bool spotted;
@@ -77,6 +82,30 @@ public class ISOMechAI : MonoBehaviour
         cannonBones = cannonBones ?? new Transform[0];
         cannonPositions = new Vector3[cannonBones.Length];
         cannonRotations = new Quaternion[cannonBones.Length];
+        cannonAimOffsets = new Quaternion[cannonBones.Length];
+        cannonAimAxes = new Vector3[cannonBones.Length];
+        for (int i = 0; i < cannonBones.Length; i++)
+        {
+            cannonAimOffsets[i] = Quaternion.identity;
+            Transform bone = cannonBones[i];
+            if (bone == null)
+                continue;
+            // The model's left and right bones have different local axes.
+            // FirePoint's blue Z axis defines the actual barrel direction.
+            Vector3 forward = transform.forward;
+            if (firePoints != null)
+            {
+                foreach (Transform muzzle in firePoints)
+                {
+                    if (muzzle != null && muzzle.IsChildOf(bone))
+                    {
+                        forward = muzzle.forward;
+                        break;
+                    }
+                }
+            }
+            cannonAimAxes[i] = bone.InverseTransformDirection(forward);
+        }
         gunsReady = bulletPrefab != null && bulletPrefab.TryGetComponent<BulletController>(out _)
             && bulletPrefab.TryGetComponent<Rigidbody>(out _) && firePoints != null && firePoints.Length > 0;
         if (!gunsReady)
@@ -102,6 +131,7 @@ public class ISOMechAI : MonoBehaviour
     {
         // Remove last frame's additive pose before Animator evaluates the next one.
         RestoreCannonPose();
+        wantsShot = false;
         if (dead || health.GetHealth() <= 0)
             return;
 
@@ -201,8 +231,7 @@ public class ISOMechAI : MonoBehaviour
         else
             StopMoving();
 
-        if (!approaching && distance <= shootingDistance + 2f && FacingTarget())
-            TryShoot();
+        wantsShot = !approaching && distance <= shootingDistance + 2f && FacingTarget();
         PlayMovement(agent.velocity.sqrMagnitude > 0.01f, turning);
     }
 
@@ -247,15 +276,21 @@ public class ISOMechAI : MonoBehaviour
 
     private void TryShoot()
     {
-        if (!gunsReady || Time.time < nextShot)
+        if (!gunsReady || player == null || Time.time < nextShot)
             return;
-        Transform muzzle = firePoints[gunIndex++ % firePoints.Length];
-        nextShot = Time.time + shotInterval;
-        if (muzzle == null || !HasSight(muzzle.position))
+        Transform muzzle = firePoints[gunIndex % firePoints.Length];
+        if (muzzle == null)
+        {
+            gunIndex = (gunIndex + 1) % firePoints.Length;
+            return;
+        }
+        if (!HasSight(muzzle.position))
             return;
         Vector3 direction = (AimPoint() - muzzle.position).normalized;
-        if (direction.sqrMagnitude < 0.001f)
+        if (direction.sqrMagnitude < 0.001f || Vector3.Angle(muzzle.forward, direction) > 5f)
             return;
+        nextShot = Time.time + shotInterval;
+        gunIndex = (gunIndex + 1) % firePoints.Length;
         GameObject projectile = Instantiate(bulletPrefab, muzzle.position, Quaternion.LookRotation(direction));
         projectile.GetComponent<BulletController>().Initialize(shotDamage, gameObject);
         Rigidbody body = projectile.GetComponent<Rigidbody>();
@@ -269,6 +304,10 @@ public class ISOMechAI : MonoBehaviour
     {
         if (dead || Time.time < stunnedUntil)
             return;
+        bool aiming = player != null && !swinging && AgentReady
+            && (landing == null || landing.IsActivated)
+            && (targetHealth == null || targetHealth.GetHealth() > 0)
+            && Vector3.Distance(transform.position, player.position) <= detectionRange;
         recoil = Mathf.MoveTowards(recoil, 0f, recoilDistance * 8f * Time.deltaTime);
         float swing = 0f;
         if (swinging)
@@ -289,11 +328,29 @@ public class ISOMechAI : MonoBehaviour
                 continue;
             cannonPositions[i] = bone.localPosition;
             cannonRotations[i] = bone.localRotation;
+            Quaternion aimOffset = Quaternion.identity;
+            if (aiming)
+            {
+                Vector3 direction = AimPoint() - bone.position;
+                if (direction.sqrMagnitude > 0.001f)
+                {
+                    direction = Vector3.RotateTowards(transform.forward, direction.normalized,
+                        maxCannonAimAngle * Mathf.Deg2Rad, 0f);
+                    Vector3 localDirection = bone.parent.InverseTransformDirection(direction);
+                    aimOffset = Quaternion.FromToRotation(bone.localRotation * cannonAimAxes[i], localDirection);
+                }
+            }
+            cannonAimOffsets[i] = Quaternion.RotateTowards(cannonAimOffsets[i], aimOffset,
+                cannonAimSpeed * Time.deltaTime);
+            bone.localRotation = cannonAimOffsets[i] * bone.localRotation;
             bone.localPosition += bone.parent.InverseTransformVector(-transform.forward * recoil);
             Vector3 axis = bone.parent.InverseTransformDirection(transform.right);
             bone.localRotation = Quaternion.AngleAxis(swing * cannonSwingAngle, axis) * bone.localRotation;
         }
         poseApplied = true;
+        // Fire after Animator and procedural aiming have placed the barrel for this frame.
+        if (wantsShot)
+            TryShoot();
     }
 
     private void RestoreCannonPose()
