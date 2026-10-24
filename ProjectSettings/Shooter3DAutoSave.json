@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "intervalSeconds": 600,
+  "saveScenes": true,
+  "saveAssets": true,
+  "logSaves": true
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Shooter3D.AutoSave.Editor",
+  "rootNamespace": "Shooter3D.AutoSave",
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}
