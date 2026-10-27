@@ -9,6 +9,7 @@ public class MechRocket : MonoBehaviour
     [SerializeField, Min(0.05f)] private float ascentDuration = 0.7f;
     [SerializeField, Min(0.1f)] private float ascentSpeed = 12f;
     [SerializeField, Min(0.1f)] private float flightSpeed = 25f;
+    [SerializeField, Range(0f, 15f)] private float spreadAngle = 3f;
     [SerializeField, Min(0.1f)] private float lifetime = 8f;
     [Tooltip("Nose direction in root local space. Zero detects the longest mesh axis. Reverse the axis if the model flies tail-first.")]
     [SerializeField] private Vector3 modelForwardAxis = Vector3.zero;
@@ -120,6 +121,12 @@ public class MechRocket : MonoBehaviour
             lockedDirection = (aimPoint - body.position).normalized;
             if (lockedDirection.sqrMagnitude < 0.001f)
                 lockedDirection = Vector3.up;
+            // Choose one offset inside a cone; keep it for the entire flight.
+            Vector2 spread = Random.insideUnitCircle * Mathf.Tan(spreadAngle * Mathf.Deg2Rad);
+            Vector3 up = Mathf.Abs(Vector3.Dot(lockedDirection, Vector3.up)) > 0.99f
+                ? Vector3.forward : Vector3.up;
+            lockedDirection = Quaternion.LookRotation(lockedDirection, up)
+                * new Vector3(spread.x, spread.y, 1f).normalized;
             directionLocked = true;
             target = null;
             targetCollider = null;
