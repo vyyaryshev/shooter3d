@@ -82,6 +82,16 @@ public class MechRocket : MonoBehaviour
 
     public void Initialize(Transform newTarget, GameObject launcher)
     {
+        InitializeLaunch(newTarget, launcher, false, Vector3.up);
+    }
+
+    public void InitializeDirect(GameObject launcher, Vector3 firingDirection)
+    {
+        InitializeLaunch(null, launcher, true, firingDirection);
+    }
+
+    private void InitializeLaunch(Transform newTarget, GameObject launcher, bool direct, Vector3 firingDirection)
+    {
         target = newTarget;
         targetCollider = target != null ? target.GetComponentInChildren<Collider>() : null;
         owner = launcher != null ? launcher.transform : null;
@@ -93,10 +103,12 @@ public class MechRocket : MonoBehaviour
                     Physics.IgnoreCollision(rocket, own);
         }
         elapsed = 0f;
-        directionLocked = false;
+        directionLocked = direct;
+        lockedDirection = firingDirection.sqrMagnitude > 0.001f ? firingDirection.normalized : transform.forward;
         initialized = true;
-        body.rotation = FlightRotation(Vector3.up);
-        body.linearVelocity = Vector3.up * ascentSpeed;
+        Vector3 direction = direct ? lockedDirection : Vector3.up;
+        body.rotation = FlightRotation(direction);
+        body.linearVelocity = direction * (direct ? flightSpeed : ascentSpeed);
         if (burningTail)
             exhaust = RocketExhaustEffect.Create(transform, exhaustPoint, FindLocalTail(), modelAxis, flameLength, flameWidth);
         Destroy(gameObject, lifetime);
@@ -150,7 +162,7 @@ public class MechRocket : MonoBehaviour
         if (!initialized || hit)
             return;
         elapsed += Time.fixedDeltaTime;
-        if (elapsed < ascentDuration)
+        if (!directionLocked && elapsed < ascentDuration)
         {
             body.rotation = FlightRotation(Vector3.up);
             body.linearVelocity = Vector3.up * ascentSpeed;
