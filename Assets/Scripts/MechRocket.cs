@@ -168,7 +168,13 @@ public class MechRocket : MonoBehaviour
                 victim.Change(-damage);
             Rigidbody affected = nearby.attachedRigidbody;
             if (affected != null && !affected.isKinematic && pushed.Add(affected))
+            {
+                // The player has a light Rigidbody: prop-sized impulses launch it into the air.
+                // Keep blast damage, but leave character velocity to the movement controller.
+                if (affected.CompareTag("Player") || affected.GetComponentInParent<FirstPersonMovement>() != null)
+                    continue;
                 affected.AddExplosionForce(explosionForce, point, explosionRadius, 0.2f, ForceMode.Impulse);
+            }
         }
         if (impactEffect != null)
         {
