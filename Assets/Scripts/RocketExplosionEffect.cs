@@ -17,6 +17,20 @@ public class RocketExplosionEffect : MonoBehaviour
 
     private void Initialize(float radius)
     {
+        material = CreateParticleMaterial(out texture);
+        CreateBurst("Fire", new Color(1f, 0.35f, 0.03f), 45, 0.55f, radius * 2f, radius * 0.3f);
+        CreateBurst("Smoke", new Color(0.18f, 0.18f, 0.18f, 0.65f), 24, 1.8f, radius * 0.6f, radius * 0.5f);
+        flash = gameObject.AddComponent<Light>();
+        flash.type = LightType.Point;
+        flash.color = new Color(1f, 0.45f, 0.1f);
+        flash.range = radius * 3f;
+        flash.intensity = 5f;
+        Destroy(gameObject, 2.5f);
+    }
+
+    public static Material CreateParticleMaterial(out Texture2D texture)
+    {
+        texture = null;
         Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
         if (shader == null)
             shader = Shader.Find("Particles/Standard Unlit");
@@ -33,7 +47,7 @@ public class RocketExplosionEffect : MonoBehaviour
                 }
             texture.SetPixels(pixels);
             texture.Apply();
-            material = new Material(shader);
+            Material material = new Material(shader);
             material.SetTexture("_BaseMap", texture);
             material.SetTexture("_MainTex", texture);
             material.SetFloat("_Surface", 1f);
@@ -42,15 +56,9 @@ public class RocketExplosionEffect : MonoBehaviour
             material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.renderQueue = (int)RenderQueue.Transparent;
+            return material;
         }
-        CreateBurst("Fire", new Color(1f, 0.35f, 0.03f), 45, 0.55f, radius * 2f, radius * 0.3f);
-        CreateBurst("Smoke", new Color(0.18f, 0.18f, 0.18f, 0.65f), 24, 1.8f, radius * 0.6f, radius * 0.5f);
-        flash = gameObject.AddComponent<Light>();
-        flash.type = LightType.Point;
-        flash.color = new Color(1f, 0.45f, 0.1f);
-        flash.range = radius * 3f;
-        flash.intensity = 5f;
-        Destroy(gameObject, 2.5f);
+        return null;
     }
 
     private void CreateBurst(string label, Color color, short count, float duration, float speed, float size)

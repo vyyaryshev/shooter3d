@@ -13,6 +13,11 @@ public class MechRocket : MonoBehaviour
     [SerializeField, Min(0.1f)] private float lifetime = 8f;
     [Tooltip("Nose direction in root local space. Zero detects the longest mesh axis. Reverse the axis if the model flies tail-first.")]
     [SerializeField] private Vector3 modelForwardAxis = Vector3.zero;
+    [Header("Burning tail")]
+    [SerializeField] private bool burningTail = true;
+    [SerializeField] private Transform exhaustPoint;
+    [SerializeField, Min(0.1f)] private float flameLength = 1.5f;
+    [SerializeField, Min(0.01f)] private float flameWidth = 0.25f;
     [Header("Impact")]
     [SerializeField, Min(1)] private int damage = 35;
     [SerializeField, Min(0.1f)] private float explosionRadius = 3f;
@@ -31,6 +36,8 @@ public class MechRocket : MonoBehaviour
     private bool directionLocked;
     private bool hit;
     private Quaternion modelRotationOffset;
+    private Vector3 modelAxis;
+    private RocketExhaustEffect exhaust;
 
     private void Awake()
     {
@@ -41,6 +48,7 @@ public class MechRocket : MonoBehaviour
         body.constraints = RigidbodyConstraints.FreezeRotation;
         Vector3 axis = modelForwardAxis.sqrMagnitude > 0.001f ? modelForwardAxis.normalized : DetectModelAxis();
         modelRotationOffset = Quaternion.FromToRotation(axis, Vector3.forward);
+        modelAxis = axis;
     }
 
     private Vector3 DetectModelAxis()
@@ -89,7 +97,44 @@ public class MechRocket : MonoBehaviour
         initialized = true;
         body.rotation = FlightRotation(Vector3.up);
         body.linearVelocity = Vector3.up * ascentSpeed;
+        if (burningTail)
+            exhaust = RocketExhaustEffect.Create(transform, exhaustPoint, FindLocalTail(), modelAxis, flameLength, flameWidth);
         Destroy(gameObject, lifetime);
+    }
+
+    private Vector3 FindLocalTail()
+    {
+        Bounds bounds = new Bounds();
+        bool found = false;
+        float tailProjection = float.PositiveInfinity;
+        foreach (MeshFilter filter in GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (filter.sharedMesh == null)
+                continue;
+            Bounds mesh = filter.sharedMesh.bounds;
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 point = mesh.center + Vector3.Scale(mesh.extents, new Vector3(
+                    (corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, (corner & 4) == 0 ? -1f : 1f));
+                point = transform.InverseTransformPoint(filter.transform.TransformPoint(point));
+                if (!found)
+                {
+                    bounds = new Bounds(point, Vector3.zero);
+                    found = true;
+                }
+                else
+                    bounds.Encapsulate(point);
+                tailProjection = Mathf.Min(tailProjection, Vector3.Dot(point, modelAxis));
+            }
+        }
+        return found ? bounds.center + modelAxis * (tailProjection - Vector3.Dot(bounds.center, modelAxis))
+            : -modelAxis * 0.3f;
+    }
+
+    private void OnDestroy()
+    {
+        if (exhaust != null)
+            exhaust.Stop();
     }
 
     private void Start()
@@ -154,6 +199,8 @@ public class MechRocket : MonoBehaviour
         if (hit || !initialized || (owner != null && other.transform.IsChildOf(owner)))
             return;
         hit = true;
+        if (exhaust != null)
+            exhaust.Stop();
         HashSet<Health> damaged = new HashSet<Health>();
         HashSet<Rigidbody> pushed = new HashSet<Rigidbody>();
         foreach (Collider nearby in Physics.OverlapSphere(point, explosionRadius, explosionMask, QueryTriggerInteraction.Ignore))
